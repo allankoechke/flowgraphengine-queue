@@ -1,0 +1,32 @@
+{
+  "name": "aps-flowgraphengine-jobqueue",
+  "version": "1.0.0",
+  "description": "A sample that shows how to use the flow graph engine to monitor queues.",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "cookie-parser": "^1.4.5",
+    "cookie-session": "^2.0.0",
+    "cors": "^2.8.5",
+    "ejs": "^3.1.8",
+    "express": "^4.17.1",
+    "express-fileupload": "^1.5.1",
+    "forge-apis": "^0.9.6",
+    "formidable": "^1.2.2",
+    "morgan": "^1.10.0",
+    "oauth": "^0.9.14",
+    "request": "^2.88.2",
+    "request-promise": "^4.2.6",
+    "trim": "^1.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/autodesk-platform-services/aps-design-automation-tools"
+  },
+  "scripts": {
+    "start": "NODE_ENV=production node start.js",
+    "dev": "node start.js",
+    "nodemon": "nodemon start.js --ignore www/"
+  },
+  "author": "Autodesk Partner Development",
+  "license": "MIT"
+}

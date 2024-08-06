@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0">
+
+    <title>Flow Graph Engine Job Queue</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!--type="text/css">-->
+    <script language="JavaScript" src="/js/jquery.min.js"></script>
+
+    <!-- bootstrap-table -->
+    <link href="https://unpkg.com/bootstrap-table@1.18.0/dist/bootstrap-table.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/bootstrap-table@1.18.0/dist/bootstrap-table.min.js"></script>
+
+    <link rel="stylesheet" href="/css/index.css" />
+    <script language="JavaScript" src="/js/scripts.js"></script>
+</head>
+
+<body>
+    <div class="container pt-3">
+        <div class="jumbotron d-flex flex-column align-items-stretch">
+            <h3>Flow Graph Engine Job Queue</h3>
+
+            <div class="row flex-1">
+                <div class="col-sm-4">
+                    <input id="client_id" type="text" name="username" placeholder="Client ID"
+                        style="display: inline-block;" class="input-small form-control" />
+                </div>
+                <div class="col-sm-4">
+                    <input id="client_secret" type="password" name="password" placeholder="Client Secret"
+                        style="display: inline-block;" class="input-small form-control" />
+                </div>
+                <div class="col-sm-4">
+                    <a href="#" id="authenticate" class="btn btn-warning btn-block">
+                        <span class="glyphicon glyphicon-user"></span>
+                        Log In
+                    </a>
+                </div>
+            </div> <!-- row -->
+
+            <div class="flex">&nbsp;</div>
+
+            <div class="d-flex flex-column bg-info">
+                    <div class="d-flex flex-row bg-warning align-items-center">
+                        <h3 style="width: fit-content;">Jobs</h3>
+                        <button id="createNewJobs" class="" title="Create New Job">
+                            <span class="glyphicon glyphicon-plus"></span>
+                            New Job
+                        </button>
+                    </div>
+
+                    <table class="table table-bordered">
+                        <thead class="thead-light">
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Job Name</th>
+                                <th scope="col">Job UUID</th>
+                                <th scope="col">Job Status</th>
+                                <th scope="col">Outputs</th>
+                            </tr>
+                        </thead>
+
+                        <!-- Table data to be filled dynamically -->
+                        <tbody id="tableBody"> </tbody>
+                    </table>
+            </div> <!-- row -->
+        </div> <!-- jumbotron -->
+    </div>
+
+    <!-- Modal Dialog for getting info -->
+    <div class="modal modal.fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="modal-title" aria-hidden="false">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" id="close-modal" data-dismiss="modal">&times;</button>
+                    <h4 id="myModal_title" class="modal-title">Modal Header</h4>
+                </div>
+                <div id="myModal_body" class="modal-body">
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" id="myModal_Create">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
