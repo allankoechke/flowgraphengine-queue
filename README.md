@@ -1,22 +1,17 @@
-# Design Automation Tools
+# Flow Graph Engine Job Queue
 
 [![Node.js](https://img.shields.io/badge/Node.js-10.16.2-blue.svg)](https://nodejs.org/)
 [![npm](https://img.shields.io/badge/npm-6.9.0-blue.svg)](https://www.npmjs.com/)
 ![Platforms](https://img.shields.io/badge/platform-windows%20%7C%20osx%20%7C%20linux-lightgray.svg)
 [![License](https://img.shields.io/:license-mit-blue.svg)](https://opensource.org/licenses/MIT)
 
-[![OAuth2](https://img.shields.io/badge/OAuth2-v2-green.svg)](https://aps.autodesk.com/)
-[![Design Automation](https://img.shields.io/badge/Design%20Automation-v3-green.svg)](https://aps.autodesk.com/)
 
-This utility app enables you to see and create new app bundles, activities and workitems - including  creating new version of those and aliases for them
+This utility app enables you to view and create bifrost jobs, which are submitted to the Flow Graph Engine service.
 
 ### Thumbnail
 
 ![thumbnail](/thumbnail.png)
 
-### Live version
-
-[https://da-manager.autodesk.io/](https://da-manager.autodesk.io/)
 
 # Usage
 
