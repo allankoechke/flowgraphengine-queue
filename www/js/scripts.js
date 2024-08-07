@@ -273,70 +273,56 @@ async function startNewJob() {
         // Disable close & submit button
         // TODO
 
-        return
-        const button = document.getElementById('addTaskButton');
-        button.disabled = true;
-        button.innerHTML = 'Processing... <div class="spinner"></div>';
-
-        const submitBtn = document.getElementById("fileUpload");
-
-        const fileInput = document.getElementById("fileUpload");
-        const name = document.getElementById("taskName").value;
-        let selectedFiles = []
-
+        console.log(inputFile.prop("files")[0])
+        console.log(bifrostGraph.prop("files")[0])
+        
         const formData = new FormData();
-        for (const file of fileInput.files) {
-            selectedFiles.push(file.name)
-            formData.append('taskFiles', file);
-        }
+        formData.append('input_files', inputFile.prop("files")[0]);
+        formData.append('bifrost_files', bifrostGraph.prop("files")[0]);
+        formData.append('job_name', jobName.val());
 
-        formData.append('taskName', name);
+        $.ajax({
+            url: '/jobs',
+            type: "POST",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function (data) {
+                console.log("Job Success: ", data, JSON.stringify(data))
+            },
+            error: function (err, text) {
+                console.log("Failed to create JOB: ", err.responseText)
+                alert(err.responseText)
+            },
+            headers: {
+                'Authorization': `Bearer ${MyVars.token}`
+            },
+        });
 
-        try {
-            const response = await fetch('http://127.0.0.1:3000/task', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-            });
 
-            if (!response.ok) {
-                throw new Error('Network response was not ok ' + response.statusText);
-            }
+        // var newJob = {
+        //     jobId: data.jobId,
+        //     queueId: data.queueId,
+        //     taskName: name,
+        //     files: selectedFiles,
+        //     status: "QUEUED",
+        //     outputs: [],
+        //     logs: []
+        // }
 
-            const data = await response.json();
+        // MyVars.jobs = [...MyVars.jobs, newJob]
 
-            // console.log(data)
+        // document.getElementById("fileUpload").value = "";
+        // document.getElementById("taskName").value = "";
+        // document.getElementById("modalDialog").close();
 
-            var newJob = {
-                jobId: data.jobId,
-                queueId: data.queueId,
-                taskName: name,
-                files: selectedFiles,
-                status: "QUEUED",
-                outputs: [],
-                logs: []
-            }
 
-            MyVars.jobs = [...MyVars.jobs, newJob]
 
-            document.getElementById("fileUpload").value = "";
-            document.getElementById("taskName").value = "";
-            document.getElementById("modalDialog").close();
+        // const intervalId = setInterval(() => {
+        //     // Call the function and pass the handle (intervalId) to it
+        //     checkStatus(data.jobId, data.queueId, intervalId);
+        // }, 5000);
 
-            const intervalId = setInterval(() => {
-                // Call the function and pass the handle (intervalId) to it
-                checkStatus(data.jobId, data.queueId, intervalId);
-            }, 5000);
-
-        } catch (error) {
-            console.error('There has been a problem with your fetch operation:', error);
-            alert('There has been a problem with your fetch operation:', error)
-        }
-
-        button.disabled = false;
-        button.innerHTML = 'Add Task';
     }
 
     async function checkStatus(jobId, queueId, intervalId) {
@@ -384,7 +370,7 @@ function validateFiles(jobName, bifrostGraph, inputFile) {
     }
 
     if (!inputFile || inputFile.prop("files").length===0 || inputFile.prop("files")[0].name==="" || !inputFile.prop("files")[0].name.endsWith(".usd")) {
-        alert("Input file is required");
+        alert("Input File Error\n\nInput file is required, please select a file with a .usd extension.");
         return false;
     }
 

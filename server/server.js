@@ -63,6 +63,8 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
+console.log(__dirname)
+
 // prepare server routing
 app.use('/', express.static(__dirname + '/../www')); // redirect static calls
 app.use('/js', express.static(__dirname + '/../node_modules/bootstrap/dist/js')); // redirect static calls
@@ -72,6 +74,7 @@ app.use('/fonts', express.static(__dirname + '/../node_modules/bootstrap/dist/fo
 app.set('port', process.env.PORT || 3000); // main port
 
 function validateFiles(req, res) {
+    return true;
 }
 
 app.post('/user/token', async (req, res) => {
@@ -108,19 +111,26 @@ app.post('/user/token', async (req, res) => {
 });
 
 // Upload endpoint
-app.post('/task', extractToken, async (req, res) => {
+app.post('/jobs', extractToken, async (req, res) => {
     try {
-        if (!req.body.taskName) {
+        if (!req.body.job_name) {
             return res.send({
                 status: false,
-                message: 'Task name not provided (taskName)'
+                message: 'Job name not provided'
             });
         }
 
-        if (!req.files) {
+        if (!req.files.input_files) {
             return res.send({
                 status: false,
-                message: 'No files uploaded'
+                message: 'Input file was not provided'
+            });
+        }
+
+        if (!req.files.bifrost_files) {
+            return res.send({
+                status: false,
+                message: 'Bifrost file input was not provided.'
             });
         }
 
@@ -132,20 +142,22 @@ app.post('/task', extractToken, async (req, res) => {
         }
 
         else {
-            const files = req.files.taskFiles;
-            let bifrostGraph = files[0].name.endsWith(".json") ? files[0] : files[1]
-            let inputUsd = files[0].name.endsWith(".usd") ? files[0] : files[1]
+            let bifrostGraph = req.files.bifrost_files
+            let inputUsd = req.files.input_files
 
             let now = Date.now()
             let bifrostGraphName = `${now}-${bifrostGraph.name}`
             let inputUsdName = `${now}-${inputUsd.name}`
 
+            let bifrostfilepath = path.join(__dirname, `../files/uploads/${bifrostGraphName}`)
+            let inputusdfilepath = path.join(__dirname, `../files/uploads/${inputUsdName}`)
+
             console.log("Saving files started ...")
-            bifrostGraph.mv('./public/uploads/' + bifrostGraphName);
-            inputUsd.mv('./public/uploads/' + inputUsdName);
+            bifrostGraph.mv(bifrostfilepath);
+            inputUsd.mv(inputusdfilepath);
             console.log("Saving files finished ...")
 
-            return await prepareRequest(req, res, req.token, path.join(__dirname, `uploads/${bifrostGraphName}`), path.join(__dirname, `uploads/${inputUsdName}`))
+            return await prepareRequest(req, res, req.token, bifrostfilepath, inputusdfilepath)
         }
     } catch (err) {
         console.log("Request failed: ", err)
@@ -153,7 +165,7 @@ app.post('/task', extractToken, async (req, res) => {
     }
 });
 
-app.post('/status', extractToken, async (req, res) => {
+app.post('jobs/status', extractToken, async (req, res) => {
     try {
         if (!req.body.jobId) {
             return res.send({
@@ -191,7 +203,7 @@ app.post('/status', extractToken, async (req, res) => {
         var resObj = { status: job.status, error: null, outputs: [], logs: [] };
 
         // Downloading logs for the job
-        const logsDirectory = path.join(__dirname, `public/outputs/${ts}/logs`);
+        const logsDirectory = path.join(__dirname, `files/outputs/${ts}/logs`);
         console.log(`Downloading logs in ${logsDirectory}`);
         fge.createDirectory(logsDirectory);
         const logs = await fge.getLogs(req.token, queueId, jobId);
@@ -208,7 +220,7 @@ app.post('/status', extractToken, async (req, res) => {
         await Promise.all(downloadLogPromises);
 
         // Downloading outputs for the job
-        const outputsDirectory = path.join(__dirname, `public/outputs/${ts}`);
+        const outputsDirectory = path.join(__dirname, `files/outputs/${ts}`);
         console.log(`Downloading outputs in ${outputsDirectory}`);
         fge.createDirectory(outputsDirectory);
         const outputs = await fge.getOutputs(req.token, queueId, jobId);
@@ -274,8 +286,8 @@ async function prepareRequest(req, res, access_token, bifrostGraphPath, inputFil
     console.log('Bifrost graph file uploaded');
 
     // Submit job
-    let taskName = req.body.taskName
-    console.log("Task Name: ", req.body.taskName)
+    let taskName = req.body.job_name
+    console.log("Task Name: ", taskName)
     const jobId = await fge.submitJob(access_token, queueId, bifrostGraphUrn, inputFileUrn, { bifrostGraphPath, inputFilePath, taskName });
 
     if (!jobId) {
