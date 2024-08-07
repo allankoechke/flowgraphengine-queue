@@ -1,4 +1,7 @@
-var jobs = [];
+var MyVars = {
+    token: "",
+    jobs: [],
+}
 
 $(document).ready(function () {
     console.log("Hello World")
@@ -16,16 +19,19 @@ $(document).ready(function () {
 
     var auth = $("#authenticate")
     auth.click(function () {
-        console.log("Authenticate")
-
         populateTable();
+
         // Get the tokens
-        get2LegToken(function (token) {
-            MyVars.token2Leg = token;
+        getUserToken(function (token) {
+            console.log("Token: ", token)
+            MyVars.token = token;
 
+            // Set logged in label, set button disabled
             auth.html('You\'re logged in');
-
             auth.addClass('disabled');
+
+            // Show create job button
+            $("#createNewJob").show();
         });
     });
 
@@ -34,20 +40,16 @@ $(document).ready(function () {
 
     // Job Tasks
     $("#createNewJob").click(function () {
-        modal.show()
-
-        // Open the modal dialog
-        console.log("Create New Job Dialog")
+        modal.show();
 
         var job = {
             name: "New Job",
             uuid: uuidv4(),
             status: "PENDING",
-            files: ["log_0.log", "output_0.usd"]
+            files: []
         }
 
-        jobs.push(job);
-
+        MyVars.jobs.push(job);
         populateTable();
     });
   
@@ -73,6 +75,9 @@ $(document).ready(function () {
         $('#myModal_body input').val('');
     }
 
+    // Hide the add job untill authenticated
+    // $("#createNewJob").hide()
+
 }); // $(document).ready
 
 function uuidv4() {
@@ -88,7 +93,7 @@ function populateTable() {
 
     var table = $("tbody");
 
-    jobs.forEach((job, index, _) => {
+    MyVars.jobs.forEach((job, index, _) => {
         filesColArray = []
         job.files.forEach((file) => {
             filesColArray.push(`<a href="#">${file}</a>`)
@@ -107,42 +112,13 @@ function populateTable() {
     });
 }
 
-function base64encode(str) {
-    var ret = "";
-    if (window.btoa) {
-        ret = window.btoa(str);
-    } else {
-        // IE9 support
-        ret = window.Base64.encode(str);
-    }
-
-    // Remove ending '=' signs
-    // Use _ instead of /
-    // Use - insteaqd of +
-    // Have a look at this page for info on "Unpadded 'base64url' for "named information" URI's (RFC 6920)"
-    // which is the format being used by the Model Derivative API
-    // https://en.wikipedia.org/wiki/Base64#Variants_summary_table
-    var ret2 = ret.replace(/=/g, '').replace(/[/]/g, '_').replace(/[+]/g, '-');
-
-    console.log('base64encode result = ' + ret2);
-
-    return ret2;
-}
-
-function logoff() {
-    $.ajax({
-        url: '/user/logoff',
-        success: function (oauthUrl) {
-            location.href = oauthUrl;
-        }
-    });
-}
-
-function get2LegToken(callback) {
-
+function getUserToken(callback) {
     if (callback) {
         var client_id = $('#client_id').val();
         var client_secret = $('#client_secret').val();
+
+        console.log(client_id, client_secret)
+
         $.ajax({
             url: '/user/token',
             type: "POST",
@@ -153,20 +129,23 @@ function get2LegToken(callback) {
                 client_secret: client_secret
             }),
             success: function (data) {
-                MyVars.token2Leg = data.token;
-                console.log('Returning new 3 legged token (User Authorization): ' + MyVars.token2Leg);
-                callback(data.token, data.expires_in);
-                /// showProgress()
+                if(data.status) {
+                    MyVars.token = data.token;
+                    console.log('Returning new token (User Authorization): ' + MyVars.token);
+                    callback(data.token);
+                } else {
+                    alert("Authentication failed", data.message)
+                }
             },
             error: function (err, text) {
-                // showProgress(err.responseText, 'failed');
-                console.log(err.responseText)
+                console.log("Authentication failed", err.responseText)
+                alert("Authentication failed", err.responseText)
             }
         });
     } else {
-        console.log('Returning saved 3 legged token (User Authorization): ' + MyVars.token2Leg);
+        console.log('Returning saved token (User Authorization): ' + MyVars.token);
 
-        return MyVars.token2Leg;
+        return MyVars.token;
     }
 }
 
@@ -195,10 +174,9 @@ function populateModal() {
 
     getInputs('Create New Job', inputs, () => {
         // Handle onCreate action
-        console.log(inputs)
+        // console.log(inputs)
     });
 }
-
 
 // 'inputs' is an array of objects with 'text', 'placeholder' and 'value' parameters 
 function getInputs(title, inputs, callback) {
@@ -282,23 +260,20 @@ function getInputs(title, inputs, callback) {
         $('#myModal_body').append(inputGroup)
     })
 
-    var onCreate = function () {
-        console.log('onCreate');
-
-        // Update values
-        Object.keys(inputs).forEach(function (key) {
-            let input = inputs[key];
-            input.value = $(`#${modelDialog}_${key}`).val();
-        })
-
-        callback();
-    }
-
-    $('#myModal_Create').on('click', onCreate);
+    // Start a new job when submitted
+    $('#myModal_Create').on('click', startNewJob);
 }
 
 async function startNewJob() {
-    if (validateFiles()) {
+    var jobName = $("#myModal_jobName");
+    var bifrostGraph = $("#myModal_bifrostGraph");
+    var inputFile = $("#myModal_inputFile");
+
+    if (validateFiles(jobName, bifrostGraph, inputFile)) {
+        // Disable close & submit button
+        // TODO
+
+        return
         const button = document.getElementById('addTaskButton');
         button.disabled = true;
         button.innerHTML = 'Processing... <div class="spinner"></div>';
@@ -344,7 +319,7 @@ async function startNewJob() {
                 logs: []
             }
 
-            jobs = [...jobs, newJob]
+            MyVars.jobs = [...MyVars.jobs, newJob]
 
             document.getElementById("fileUpload").value = "";
             document.getElementById("taskName").value = "";
@@ -384,7 +359,7 @@ async function startNewJob() {
             
             else {
                 const data = await response.json()
-                jobs = jobs.map(job => job.jobId === jobId ? { ...job, status: data.status, logs: data.logs, outputs: data.outputs} : job);
+                MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, status: data.status, logs: data.logs, outputs: data.outputs} : job);
 
                 if (data.status === 'SUCCEEDED' || data.status === 'FAILED' || data.status === 'CANCELED') {
                     clearInterval(intervalId);
@@ -397,67 +372,25 @@ async function startNewJob() {
 
 }
 
-function validateFiles(event) {
-    const name = document.getElementById("taskName").value;
-    if (name === null || name.length === 0) {
-        alert("Task job is required");
-        event.preventDefault();
+function validateFiles(jobName, bifrostGraph, inputFile) {
+    console.log("Params: ", jobName, bifrostGraph, inputFile)
+    console.log("Val: ", bifrostGraph.val())
+
+    return false;
+    if (!jobName || jobName.val()==="") {
+        alert("Job Name is required");
         return false;
     }
 
-    const files = document.getElementById("fileUpload").files;
-    let hasJson = false;
-    let hasUsd = false;
-
-    if (files.length !== 2) {
-        alert("Please select exactly two files: one .json and one .usd");
-        event.preventDefault();
+    if (!bifrostGraph || !bifrostGraph.file || !bifrostGraph.file.name.endsWith(".json")) {
+        alert("Bifrost Graph is required");
         return false;
     }
 
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.name.endsWith(".json")) {
-            hasJson = true;
-        } else if (file.name.endsWith(".usd")) {
-            hasUsd = true;
-        }
-    }
-
-    if (!hasJson || !hasUsd) {
-        alert("Please select one .json file and one .usd file.");
-        event.preventDefault();
+    if (!inputFile || !inputFile.file || !inputFile.file.name.endsWith(".usd")) {
+        alert("Input file is required");
         return false;
     }
 
     return true;
-}
-
-async function authenticateUser() {
-    if (clientID === "" || clientSecret === "") {
-        alert("Client ID and Secret is required");
-        return;
-    }
-
-    try {
-        console.log("Sending request ...")
-        const response = await fetch("http://127.0.0.1:3000/login", {
-            method: "POST",
-            body: JSON.stringify({ clientID, clientSecret }),
-            headers: {
-                "Content-Type": "application/json",
-            },
-        });
-
-        if(!response?.ok) {
-            console.log("Error: ", response)
-        } else {
-            const data = await response.json()
-            console.log(data)
-            isAuthenticated = true;
-            token = data.token;
-        }
-    } catch(err) {
-        console.log("Error: ", err)
-    }
 }

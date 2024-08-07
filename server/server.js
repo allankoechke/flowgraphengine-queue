@@ -74,23 +74,24 @@ app.set('port', process.env.PORT || 3000); // main port
 function validateFiles(req, res) {
 }
 
-app.post('/auth/login', async (req, res) => {
+app.post('/user/token', async (req, res) => {
+    console.log(req.body)
     console.log("Logging in ...")
-    if (!req.body.clientID) {
+    if (!req.body.client_id) {
         return res.send({
             status: false,
             message: 'Client ID is required'
         });
     }
 
-    if (!req.body.clientSecret) {
+    if (!req.body.client_secret) {
         return res.send({
             status: false,
             message: 'Client Secret is required'
         });
     }
 
-    const accessToken = await aps.getOauthToken(req.body.clientID, req.body.clientSecret);
+    const accessToken = await fge.getOauthToken(req.body.client_id, req.body.client_secret);
 
     if (accessToken === "")
         return res.status(403).send({
@@ -168,7 +169,7 @@ app.post('/status', extractToken, async (req, res) => {
             });
         }
 
-        let job = await aps.getJob(req.token, req.body.queueId, req.body.jobId);
+        let job = await fge.getJob(req.token, req.body.queueId, req.body.jobId);
         console.log(JSON.stringify(job))
 
         if (job.status !== 'SUCCEEDED' && job.status !== 'FAILED' && job.status !== 'CANCELED') {
@@ -192,14 +193,14 @@ app.post('/status', extractToken, async (req, res) => {
         // Downloading logs for the job
         const logsDirectory = path.join(__dirname, `public/outputs/${ts}/logs`);
         console.log(`Downloading logs in ${logsDirectory}`);
-        aps.createDirectory(logsDirectory);
-        const logs = await aps.getLogs(req.token, queueId, jobId);
+        fge.createDirectory(logsDirectory);
+        const logs = await fge.getLogs(req.token, queueId, jobId);
         const downloadLogPromises = logs.results.map(async (result, index) => {
-            const downloadUrl = await aps.getDownloadUrlForResource(req.token, result.spaceId, result.resourceId);
+            const downloadUrl = await fge.getDownloadUrlForResource(req.token, result.spaceId, result.resourceId);
             let log = path.join(logsDirectory, `log_${index}.log`)
             logsArray.push(log.toString())
             resObj.logs.push(log.toString())
-            await aps.downloadFileFromSignedUrl(downloadUrl.url, log);
+            await fge.downloadFileFromSignedUrl(downloadUrl.url, log);
         });
 
         console.log("Waiting for logs to be downloaded ...")
@@ -209,14 +210,14 @@ app.post('/status', extractToken, async (req, res) => {
         // Downloading outputs for the job
         const outputsDirectory = path.join(__dirname, `public/outputs/${ts}`);
         console.log(`Downloading outputs in ${outputsDirectory}`);
-        aps.createDirectory(outputsDirectory);
-        const outputs = await aps.getOutputs(req.token, queueId, jobId);
+        fge.createDirectory(outputsDirectory);
+        const outputs = await fge.getOutputs(req.token, queueId, jobId);
         const downloadPromises = outputs.results.map(async (result, index) => {
             try {
-                const downloadUrl = await aps.getDownloadUrlForResource(req.token, result.spaceId, result.resourceId);
+                const downloadUrl = await fge.getDownloadUrlForResource(req.token, result.spaceId, result.resourceId);
                 const outputFile = path.join(outputsDirectory, `output_${index}.usd`);
                 resObj.outputs.push(outputFile.toString());
-                await aps.downloadFileFromSignedUrl(downloadUrl.url, outputFile);
+                await fge.downloadFileFromSignedUrl(downloadUrl.url, outputFile);
             } catch (err) {
                 console.log("Output Error: ", err);
             }
@@ -227,7 +228,7 @@ app.post('/status', extractToken, async (req, res) => {
         await Promise.all(downloadPromises);
 
         if (job.status === 'FAILED') {
-            const taskExecutions = await aps.getTaskExecutions(req.token, queueId, jobId);
+            const taskExecutions = await fge.getTaskExecutions(req.token, queueId, jobId);
             const taskError = taskExecutions?.results?.[0].error;
             if (taskError) {
                 console.log(JSON.stringify(taskError));
@@ -260,22 +261,22 @@ async function prepareRequest(req, res, access_token, bifrostGraphPath, inputFil
 
     // Upload input file (plane.usd)
     console.log('Uploading input file');
-    const getInputFileUploadUrlResponse = await aps.getResourceUploadUrl(access_token, storageSpaceId, path.parse(inputFilePath).base);
-    const inputFileEtag = await aps.uploadToSignedUrl(getInputFileUploadUrlResponse.urls[0].url, inputFilePath);
-    const inputFileUrn = await aps.completeUpload(access_token, storageSpaceId, getInputFileUploadUrlResponse.upload.resourceId, getInputFileUploadUrlResponse.upload.id, inputFileEtag);
+    const getInputFileUploadUrlResponse = await fge.getResourceUploadUrl(access_token, storageSpaceId, path.parse(inputFilePath).base);
+    const inputFileEtag = await fge.uploadToSignedUrl(getInputFileUploadUrlResponse.urls[0].url, inputFilePath);
+    const inputFileUrn = await fge.completeUpload(access_token, storageSpaceId, getInputFileUploadUrlResponse.upload.resourceId, getInputFileUploadUrlResponse.upload.id, inputFileEtag);
     console.log('Input File uploaded');
 
     // Upload bifrost graph file (addTrees.json)
     console.log('Uploading bifrost graph file');
-    const getGraphUploadUrlResponse = await aps.getResourceUploadUrl(access_token, storageSpaceId, path.parse(bifrostGraphPath).base);
-    const bifrostGraphEtag = await aps.uploadToSignedUrl(getGraphUploadUrlResponse.urls[0].url, bifrostGraphPath);
-    const bifrostGraphUrn = await aps.completeUpload(access_token, storageSpaceId, getGraphUploadUrlResponse.upload.resourceId, getGraphUploadUrlResponse.upload.id, bifrostGraphEtag);
+    const getGraphUploadUrlResponse = await fge.getResourceUploadUrl(access_token, storageSpaceId, path.parse(bifrostGraphPath).base);
+    const bifrostGraphEtag = await fge.uploadToSignedUrl(getGraphUploadUrlResponse.urls[0].url, bifrostGraphPath);
+    const bifrostGraphUrn = await fge.completeUpload(access_token, storageSpaceId, getGraphUploadUrlResponse.upload.resourceId, getGraphUploadUrlResponse.upload.id, bifrostGraphEtag);
     console.log('Bifrost graph file uploaded');
 
     // Submit job
     let taskName = req.body.taskName
     console.log("Task Name: ", req.body.taskName)
-    const jobId = await aps.submitJob(access_token, queueId, bifrostGraphUrn, inputFileUrn, { bifrostGraphPath, inputFilePath, taskName });
+    const jobId = await fge.submitJob(access_token, queueId, bifrostGraphUrn, inputFileUrn, { bifrostGraphPath, inputFilePath, taskName });
 
     if (!jobId) {
         console.log("Job submission task failed")
