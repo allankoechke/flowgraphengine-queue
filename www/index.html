@@ -22,10 +22,10 @@
 
 <body>
     <div class="container pt-3">
-        <div class="jumbotron d-flex flex-column align-items-stretch">
+        <div class="jumbotron">
             <h3>Flow Graph Engine Job Queue</h3>
 
-            <div class="row flex-1">
+            <div class="row">
                 <div class="col-sm-4">
                     <input id="client_id" type="text" name="username" placeholder="Client ID"
                         style="display: inline-block;" class="input-small form-control" />
@@ -42,37 +42,41 @@
                 </div>
             </div> <!-- row -->
 
-            <div class="flex">&nbsp;</div>
+            <div class="bb-2px">&nbsp;</div>
 
-            <div class="d-flex flex-column bg-info">
-                    <div class="d-flex flex-row bg-warning align-items-center">
-                        <h3 style="width: fit-content;">Jobs</h3>
-                        <button id="createNewJobs" class="" title="Create New Job">
-                            <span class="glyphicon glyphicon-plus"></span>
-                            New Job
-                        </button>
-                    </div>
+            <div class="row">
+                <h3 class="col-sm-4">Jobs</h3>
+                <div class="col-sm-4"></div>
+                <div class="col-sm-4">
+                    <button id="createNewJob" class="btn btn-warning btn-block" title="Create New Job">
+                        <span class="glyphicon glyphicon-plus"></span>
+                        New Job
+                    </button>
+                </div>                
+            </div>
 
-                    <table class="table table-bordered">
-                        <thead class="thead-light">
-                            <tr>
-                                <th scope="col">#</th>
-                                <th scope="col">Job Name</th>
-                                <th scope="col">Job UUID</th>
-                                <th scope="col">Job Status</th>
-                                <th scope="col">Outputs</th>
-                            </tr>
-                        </thead>
+            <div class="container">
+                <table class="table table-bordered row">
+                    <thead class="thead-light row">
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Job Name</th>
+                            <th scope="col">Job UUID</th>
+                            <th scope="col">Job Status</th>
+                            <th scope="col">Outputs</th>
+                        </tr>
+                    </thead>
 
-                        <!-- Table data to be filled dynamically -->
-                        <tbody id="tableBody"> </tbody>
-                    </table>
+                    <!-- Table data to be filled dynamically -->
+                    <tbody id="tableBody"> </tbody>
+                </table>
             </div> <!-- row -->
         </div> <!-- jumbotron -->
     </div>
 
     <!-- Modal Dialog for getting info -->
-    <div class="modal modal.fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="modal-title" aria-hidden="false">
+    <div class="modal modal.fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="modal-title"
+        aria-hidden="false">
         <div class="modal-dialog">
             <!-- Modal content-->
             <div class="modal-content">
@@ -90,4 +94,5 @@
         </div>
     </div>
 </body>
+
 </html>
