@@ -373,21 +373,17 @@ async function startNewJob() {
 }
 
 function validateFiles(jobName, bifrostGraph, inputFile) {
-    console.log("Params: ", jobName, bifrostGraph, inputFile)
-    console.log("Val: ", bifrostGraph.val())
-
-    return false;
     if (!jobName || jobName.val()==="") {
         alert("Job Name is required");
         return false;
     }
 
-    if (!bifrostGraph || !bifrostGraph.file || !bifrostGraph.file.name.endsWith(".json")) {
-        alert("Bifrost Graph is required");
+    if (!bifrostGraph || bifrostGraph.prop("files").length===0 || bifrostGraph.prop("files")[0].name==="" || !bifrostGraph.prop("files")[0].name.endsWith(".json")) {
+        alert("Input File Error\n\nBifrost Graph is required, please select a graph file with a .json extension.");
         return false;
     }
 
-    if (!inputFile || !inputFile.file || !inputFile.file.name.endsWith(".usd")) {
+    if (!inputFile || inputFile.prop("files").length===0 || inputFile.prop("files")[0].name==="" || !inputFile.prop("files")[0].name.endsWith(".usd")) {
         alert("Input file is required");
         return false;
     }
