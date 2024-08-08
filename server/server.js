@@ -165,7 +165,9 @@ app.post('/jobs', extractToken, async (req, res) => {
     }
 });
 
-app.post('jobs/status', extractToken, async (req, res) => {
+app.post('/job/status', extractToken, async (req, res) => {
+    console.log("DIRNAME: ", __dirname)
+
     try {
         if (!req.body.jobId) {
             return res.send({
@@ -203,7 +205,7 @@ app.post('jobs/status', extractToken, async (req, res) => {
         var resObj = { status: job.status, error: null, outputs: [], logs: [] };
 
         // Downloading logs for the job
-        const logsDirectory = path.join(__dirname, `files/outputs/${ts}/logs`);
+        const logsDirectory = path.join(__dirname, `../files/outputs/${jobId}`);
         console.log(`Downloading logs in ${logsDirectory}`);
         fge.createDirectory(logsDirectory);
         const logs = await fge.getLogs(req.token, queueId, jobId);
@@ -220,7 +222,7 @@ app.post('jobs/status', extractToken, async (req, res) => {
         await Promise.all(downloadLogPromises);
 
         // Downloading outputs for the job
-        const outputsDirectory = path.join(__dirname, `files/outputs/${ts}`);
+        const outputsDirectory = path.join(__dirname, `../files/outputs/${jobId}`);
         console.log(`Downloading outputs in ${outputsDirectory}`);
         fge.createDirectory(outputsDirectory);
         const outputs = await fge.getOutputs(req.token, queueId, jobId);
@@ -237,7 +239,7 @@ app.post('jobs/status', extractToken, async (req, res) => {
 
         console.log("Downloading the output files, this may take some time")
         // Wait for files to be written
-        await Promise.all(downloadPromises);
+        // await Promise.all(downloadPromises);
 
         if (job.status === 'FAILED') {
             const taskExecutions = await fge.getTaskExecutions(req.token, queueId, jobId);
@@ -293,12 +295,14 @@ async function prepareRequest(req, res, access_token, bifrostGraphPath, inputFil
     if (!jobId) {
         console.log("Job submission task failed")
         return res.status(500).send({
+            status: false,
             message: "Job submission failed, internal error"
         });
     }
 
     console.log(`Job submitted, id: ${jobId}`);
     return res.status(200).send({
+        status: true,
         jobId,
         queueId
     });

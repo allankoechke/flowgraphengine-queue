@@ -41,44 +41,33 @@ $(document).ready(function () {
     // Job Tasks
     $("#createNewJob").click(function () {
         modal.show();
-
-        var job = {
-            name: "New Job",
-            uuid: uuidv4(),
-            status: "PENDING",
-            files: []
-        }
-
-        MyVars.jobs.push(job);
-        populateTable();
     });
-  
-    $("#close-modal").click(function() {
+
+    $("#close-modal").click(function () {
         modal.hide();
         clearModalFields();
     })
 
-    modal.on('hidden.bs.modal', function () {
-        console.log("Close")
-       //  $('#myModal_Create').off('click', onCreate);
-    });
-
-    $("myModal").on("shown.mdb.modal", () => { console.log(
-        "Shown!"
-    )});
-
-    modal.on("hide", () => { console.log("Hidden")})
-
     populateModal();
 
-    function clearModalFields() {
-        $('#myModal_body input').val('');
-    }
-
     // Hide the add job untill authenticated
-    // $("#createNewJob").hide()
+    $("#createNewJob").hide()
 
 }); // $(document).ready
+
+function clearModalFields() {
+    $('#myModal_body input').val('');
+}
+
+function closeModal() {
+    $("#myModal").hide();
+    clearModalFields();
+}
+
+function openModal() {
+    $("#myModal").show();
+    clearModalFields();
+}
 
 function uuidv4() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -102,7 +91,7 @@ function populateTable() {
         var row = `<tr>
             <th scope="row">${index + 1}</th>
             <td>${job.name}</td>
-            <td>${job.uuid}</td>
+            <td>${job.jobId==="" ? "---" : job.jobId}</td>
             <td>${job.status}</td>
             <td> <div class="d-flex flex-row">`
         row += filesColArray.join(", ")
@@ -129,7 +118,7 @@ function getUserToken(callback) {
                 client_secret: client_secret
             }),
             success: function (data) {
-                if(data.status) {
+                if (data.status) {
                     MyVars.token = data.token;
                     console.log('Returning new token (User Authorization): ' + MyVars.token);
                     callback(data.token);
@@ -170,7 +159,7 @@ function populateModal() {
             'value': '',
             'type': ".usd"
         }
-    };    
+    };
 
     getInputs('Create New Job', inputs, () => {
         // Handle onCreate action
@@ -275,11 +264,30 @@ async function startNewJob() {
 
         console.log(inputFile.prop("files")[0])
         console.log(bifrostGraph.prop("files")[0])
-        
+
         const formData = new FormData();
         formData.append('input_files', inputFile.prop("files")[0]);
         formData.append('bifrost_files', bifrostGraph.prop("files")[0]);
         formData.append('job_name', jobName.val());
+
+        var id = uuidv4();
+
+        var job = {
+            uuid: id,
+            name: jobName.val(),
+            inputFiles: [],
+            jobId: "",
+            queueId: "",
+            files: [],
+            status: "UPLOADING",
+            outputs: [],
+            logs: [],
+            anotherStatusRequestPending: false
+        }
+
+        closeModal();
+        MyVars.jobs.push(job);
+        populateTable();
 
         $.ajax({
             url: '/jobs',
@@ -288,9 +296,21 @@ async function startNewJob() {
             processData: false,
             contentType: false,
             success: function (data) {
-                console.log("Job Success: ", data, JSON.stringify(data))
+                if (data.status) {
+                    console.log("Job Success: ", data)
+                    MyVars.jobs = MyVars.jobs.map(task => task.uuid === id ? { ...task, status: "QUEUED",  jobId: data.jobId, queueId: data.queueId} : task);
+                    populateTable();
+
+                    const intervalId = setInterval(() => {
+                        // Call the function and pass the handle (intervalId) to it
+                        checkStatus(data.jobId, data.queueId, intervalId);
+                    }, 5000);
+                } else {                    
+                    MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED"} : job);
+                }
             },
             error: function (err, text) {
+                MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED"} : job);
                 console.log("Failed to create JOB: ", err.responseText)
                 alert(err.responseText)
             },
@@ -299,77 +319,64 @@ async function startNewJob() {
             },
         });
 
-
-        // var newJob = {
-        //     jobId: data.jobId,
-        //     queueId: data.queueId,
-        //     taskName: name,
-        //     files: selectedFiles,
-        //     status: "QUEUED",
-        //     outputs: [],
-        //     logs: []
-        // }
-
-        // MyVars.jobs = [...MyVars.jobs, newJob]
-
-        // document.getElementById("fileUpload").value = "";
-        // document.getElementById("taskName").value = "";
-        // document.getElementById("modalDialog").close();
-
-
-
-        // const intervalId = setInterval(() => {
-        //     // Call the function and pass the handle (intervalId) to it
-        //     checkStatus(data.jobId, data.queueId, intervalId);
-        // }, 5000);
-
+        // Update the table
+        populateTable();
     }
 
     async function checkStatus(jobId, queueId, intervalId) {
-        if(!anotherStatusRequestPending) {
-            anotherStatusRequestPending = true;
-            const response = await fetch("http://127.0.0.1:3000/status", {
-                method: "POST",
-                body: JSON.stringify({ jobId, queueId }),
+        // Update job item
+        var foundIndex = MyVars.jobs.findIndex(job => job.jobId === jobId);
+
+        if (foundIndex>=0 && !MyVars.jobs[foundIndex].anotherStatusRequestPending) {
+            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: true} : job);
+
+            $.ajax({
+                url: '/job/status',
+                type: "POST",
+                contentType: "application/json",
                 headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
+                    "Authorization": `Bearer ${MyVars.token}`,
                 },
+                dataType: "json",
+                data: JSON.stringify({ jobId, queueId }),
+                success: function (data) {
+                    MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, status: data.status, logs: data.logs, outputs: data.outputs } : job);
+                    populateTable();
+
+                    console.log(data.status)
+
+                    if (data.status === 'SUCCEEDED' || data.status === 'FAILED' || data.status === 'CANCELED') {
+                        console.log("Completed ... -> ", data.status)
+                        clearInterval(intervalId);
+                    }
+
+                },
+                error: function (err, text) {
+                    clearInterval(intervalId);
+                    console.log("Job Status Failed: ", err, text)
+                    // alert(`Job '${jobId}' Status Check failed\n\n` + err.responseText)
+                }
             });
 
-            if(!response.ok) {
-
-                alert("Check Status Failed")
-                clearInterval(intervalId);
-            }
-            
-            else {
-                const data = await response.json()
-                MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, status: data.status, logs: data.logs, outputs: data.outputs} : job);
-
-                if (data.status === 'SUCCEEDED' || data.status === 'FAILED' || data.status === 'CANCELED') {
-                    clearInterval(intervalId);
-                }
-            }
-
-            anotherStatusRequestPending = false;
+            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false} : job);
+            populateTable();
         }
     }
 
 }
 
 function validateFiles(jobName, bifrostGraph, inputFile) {
-    if (!jobName || jobName.val()==="") {
+    if (!jobName || jobName.val() === "") {
         alert("Job Name is required");
         return false;
     }
 
-    if (!bifrostGraph || bifrostGraph.prop("files").length===0 || bifrostGraph.prop("files")[0].name==="" || !bifrostGraph.prop("files")[0].name.endsWith(".json")) {
+    if (!bifrostGraph || bifrostGraph.prop("files").length === 0 || bifrostGraph.prop("files")[0].name === "" || !bifrostGraph.prop("files")[0].name.endsWith(".json")) {
         alert("Input File Error\n\nBifrost Graph is required, please select a graph file with a .json extension.");
         return false;
     }
 
-    if (!inputFile || inputFile.prop("files").length===0 || inputFile.prop("files")[0].name==="" || !inputFile.prop("files")[0].name.endsWith(".usd")) {
+    if (!inputFile || inputFile.prop("files").length === 0 || inputFile.prop("files")[0].name === "" || !inputFile.prop("files")[0].name.endsWith(".usd")) {
         alert("Input File Error\n\nInput file is required, please select a file with a .usd extension.");
         return false;
     }
