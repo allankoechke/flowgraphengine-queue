@@ -82,7 +82,7 @@ Documentation:
 - [Flow Graph Engine](https://aps.autodesk.com/developer/overview/flow-graph-engine-api)
 
 Blogs:
-- [APS Blog](https://aps.autodesk.com/blog/introducing-first-me-oriented-aps-service-flow-graph-engine)
+- [Flow Graph Engine Announcement](https://aps.autodesk.com/blog/introducing-first-me-oriented-aps-service-flow-graph-engine)
 
 ## Known Issues
 - The resultant file downloads dont come with the correct file extensions, you have to affix them on the file save dialog.
