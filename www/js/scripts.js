@@ -46,10 +46,10 @@ $(document).ready(function () {
         clearModalFields();
     })
 
-    populateModal();
-
     // Hide the add job untill authenticated
     $("#createNewJob").hide()
+
+    populateModal();
 
 }); // $(document).ready
 
@@ -270,12 +270,6 @@ async function startNewJob() {
     var inputFile = $("#myModal_inputFile");
 
     if (validateFiles(jobName, bifrostGraph, inputFile)) {
-        // Disable close & submit button
-        // TODO
-
-        console.log(inputFile.prop("files")[0])
-        console.log(bifrostGraph.prop("files")[0])
-
         const formData = new FormData();
         formData.append('input_files', inputFile.prop("files")[0]);
         formData.append('bifrost_files', bifrostGraph.prop("files")[0]);
@@ -318,11 +312,12 @@ async function startNewJob() {
                     }, 5000);
                 } else {                    
                     MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED"} : job);
+                    populateTable();
                 }
             },
             error: function (err, text) {
                 MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED"} : job);
-                // console.log("Failed to create JOB: ", err.responseText)
+                populateTable();
                 alert(err.responseText)
             },
             headers: {

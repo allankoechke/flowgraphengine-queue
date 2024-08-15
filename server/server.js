@@ -18,27 +18,16 @@
 'use strict';
 
 var express = require('express');
-var cookieParser = require('cookie-parser');
-var session = require('cookie-session');
 const path = require('path');
 const fileUpload = require("express-fileupload");
 const cors = require("cors");
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
 const _ = require("lodash");
-const exec = require('child_process').exec;
 
 // prepare our API endpoint routing
 var fge = require('./flowgraphengine');
 var app = express();
-
-// this session will be used to save the oAuth token
-app.use(cookieParser());
-app.set('trust proxy', 1) // trust first proxy - HTTPS on Heroku 
-app.use(session({
-    secret: "1234567890", // config.sessionSecret,
-    maxAge: 1000 * 60 * 60, // 1 hours to expire the session and avoid memory leak
-}));
 
 // Middleware to extract access token
 function extractToken(req, res, next) {
@@ -63,8 +52,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-console.log(__dirname)
-
 // prepare server routing
 app.use('/', express.static(__dirname + '/../www')); // redirect static calls
 app.use('/js', express.static(__dirname + '/../node_modules/bootstrap/dist/js')); // redirect static calls
@@ -78,8 +65,6 @@ function validateFiles(req, res) {
 }
 
 app.post('/user/token', async (req, res) => {
-    console.log(req.body)
-    console.log("Logging in ...")
     if (!req.body.client_id) {
         return res.send({
             status: false,
@@ -152,10 +137,8 @@ app.post('/jobs', extractToken, async (req, res) => {
             let bifrostfilepath = path.join(__dirname, `../files/uploads/${bifrostGraphName}`)
             let inputusdfilepath = path.join(__dirname, `../files/uploads/${inputUsdName}`)
 
-            console.log("Saving files started ...")
             bifrostGraph.mv(bifrostfilepath);
             inputUsd.mv(inputusdfilepath);
-            console.log("Saving files finished ...")
 
             return await prepareRequest(req, res, req.token, bifrostfilepath, inputusdfilepath)
         }
@@ -166,8 +149,6 @@ app.post('/jobs', extractToken, async (req, res) => {
 });
 
 app.post('/job/status', extractToken, async (req, res) => {
-    console.log("Token: ", req.token)
-
     try {
         if (!req.body.jobId) {
             return res.send({
@@ -182,8 +163,6 @@ app.post('/job/status', extractToken, async (req, res) => {
                 message: 'Queue ID required'
             });
         }
-
-        console.log(req.body.jobId, req.body.queueId)
 
         let job = await fge.getJob(req.token, req.body.queueId, req.body.jobId);
         // console.log(JSON.stringify(job))
@@ -205,10 +184,8 @@ app.post('/job/status', extractToken, async (req, res) => {
         // Downloading logs for the job
         const logs = await fge.getLogs(req.token, queueId, jobId);
         const downloadLogPromises = logs.results.map(async (result, index) => {
-                const downloadUrl = await fge.getDownloadUrlForResource(req.token, result.spaceId, result.resourceId);
                 var obj = {
                     name: `log_${index+1}.log`,
-                    url: "",
                     spaceId: result.spaceId, 
                     resourceId: result.resourceId
                 }
@@ -253,15 +230,6 @@ app.post('/job/status', extractToken, async (req, res) => {
     }
 });
 
-app.use("/dir", async(req, res) => {
-    if(!req.body.path) {
-        console.log("Path not specified")
-        return res.status(403).send("No file path specified")
-    }
-
-    return openDirectory(res, req.body.path)
-})
-
 async function prepareRequest(req, res, access_token, bifrostGraphPath, inputFilePath) {
     console.log("Prepare request ...")
     const storageSpaceId = 'scratch:@default';
@@ -304,36 +272,5 @@ async function prepareRequest(req, res, access_token, bifrostGraphPath, inputFil
     });
 };
 
-function openDirectory(res, dirPath) {
-    let absolutePath = path.dirname(dirPath).replace(/[\\\/]+$/, '').replace(/\/+/g, '\\').replace(/\\\\+/g, '\\');
-    console.log(absolutePath.toString())
-    
-    let command;
-
-    switch (process.platform) {
-        case 'win32': // Windows
-            command = `explorer "${absolutePath}"`;
-            break;
-        case 'darwin': // macOS
-            command = `open "${absolutePath}"`;
-            break;
-        case 'linux': // Linux
-            command = `xdg-open "${absolutePath}"`;
-            break;
-        default:
-            console.error('Unsupported platform:', process.platform);
-            return res.status(404).send({"error": "Unsupported platform"})
-    }
-
-    exec(command, (error) => {
-        if (error) {
-            console.error('Error opening directory:', error);
-            return res.send({"error": "Failed to open file directory"})
-        } else {
-            console.log('Directory opened successfully:', absolutePath);
-            return res.status(200).send({"message": "Folder opened"})
-        }
-    });
-}
 
 module.exports = app;
