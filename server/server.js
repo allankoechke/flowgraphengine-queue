@@ -166,7 +166,7 @@ app.post('/jobs', extractToken, async (req, res) => {
 });
 
 app.post('/job/status', extractToken, async (req, res) => {
-    console.log("DIRNAME: ", __dirname)
+    console.log("Token: ", req.token)
 
     try {
         if (!req.body.jobId) {
@@ -183,8 +183,10 @@ app.post('/job/status', extractToken, async (req, res) => {
             });
         }
 
+        console.log(req.body.jobId, req.body.queueId)
+
         let job = await fge.getJob(req.token, req.body.queueId, req.body.jobId);
-        console.log(JSON.stringify(job))
+        // console.log(JSON.stringify(job))
 
         if (job.status !== 'SUCCEEDED' && job.status !== 'FAILED' && job.status !== 'CANCELED') {
             console.log("Job Status: ", job.status)
@@ -198,48 +200,42 @@ app.post('/job/status', extractToken, async (req, res) => {
 
         let queueId = req.body.queueId;
         let jobId = req.body.jobId;
-
-        const ts = Date.now();
-        var logsArray = [];
-        var outputArray = [];
         var resObj = { status: job.status, error: null, outputs: [], logs: [] };
 
         // Downloading logs for the job
-        const logsDirectory = path.join(__dirname, `../files/outputs/${jobId}`);
-        console.log(`Downloading logs in ${logsDirectory}`);
-        fge.createDirectory(logsDirectory);
         const logs = await fge.getLogs(req.token, queueId, jobId);
         const downloadLogPromises = logs.results.map(async (result, index) => {
-            const downloadUrl = await fge.getDownloadUrlForResource(req.token, result.spaceId, result.resourceId);
-            let log = path.join(logsDirectory, `log_${index}.log`)
-            logsArray.push(log.toString())
-            resObj.logs.push(log.toString())
-            await fge.downloadFileFromSignedUrl(downloadUrl.url, log);
+                const downloadUrl = await fge.getDownloadUrlForResource(req.token, result.spaceId, result.resourceId);
+                var obj = {
+                    name: `log_${index+1}.log`,
+                    url: "",
+                    spaceId: result.spaceId, 
+                    resourceId: result.resourceId
+                }
+                resObj.logs.push(obj);
         });
 
-        console.log("Waiting for logs to be downloaded ...")
         // Wait for files to be written
         await Promise.all(downloadLogPromises);
 
         // Downloading outputs for the job
-        const outputsDirectory = path.join(__dirname, `../files/outputs/${jobId}`);
-        console.log(`Downloading outputs in ${outputsDirectory}`);
-        fge.createDirectory(outputsDirectory);
         const outputs = await fge.getOutputs(req.token, queueId, jobId);
         const downloadPromises = outputs.results.map(async (result, index) => {
             try {
-                const downloadUrl = await fge.getDownloadUrlForResource(req.token, result.spaceId, result.resourceId);
-                const outputFile = path.join(outputsDirectory, `output_${index}.usd`);
-                resObj.outputs.push(outputFile.toString());
-                await fge.downloadFileFromSignedUrl(downloadUrl.url, outputFile);
+                // const downloadUrl = await fge.getDownloadUrlForResource(req.token, result.spaceId, result.resourceId);
+                var obj = {
+                    name: `output_${index+1}.usd`,
+                    spaceId: result.spaceId, 
+                    resourceId: result.resourceId
+                }
+                resObj.outputs.push(obj);
             } catch (err) {
                 console.log("Output Error: ", err);
             }
         });
 
-        console.log("Downloading the output files, this may take some time")
         // Wait for files to be written
-        // await Promise.all(downloadPromises);
+        await Promise.all(downloadPromises);
 
         if (job.status === 'FAILED') {
             const taskExecutions = await fge.getTaskExecutions(req.token, queueId, jobId);

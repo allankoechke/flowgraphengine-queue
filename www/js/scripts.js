@@ -4,8 +4,6 @@ var MyVars = {
 }
 
 $(document).ready(function () {
-    console.log("Hello World")
-    //debugger;
     // check URL params
     var url = new URL(window.location.href);
     var client_id = url.searchParams.get("client_id");
@@ -23,7 +21,7 @@ $(document).ready(function () {
 
         // Get the tokens
         getUserToken(function (token) {
-            console.log("Token: ", token)
+            // console.log("Token: ", token)
             MyVars.token = token;
 
             // Set logged in label, set button disabled
@@ -83,19 +81,32 @@ function populateTable() {
     var table = $("tbody");
 
     MyVars.jobs.forEach((job, index, _) => {
-        filesColArray = []
-        job.files.forEach((file) => {
-            filesColArray.push(`<a href="#">${file}</a>`)
-        })
+        hasFiles = false;
+        
 
         var row = `<tr>
             <th scope="row">${index + 1}</th>
             <td>${job.name}</td>
             <td>${job.jobId==="" ? "---" : job.jobId}</td>
             <td>${job.status}</td>
-            <td> <div class="d-flex flex-row">`
-        row += filesColArray.join(", ")
-        row += "</div> </td> </tr>"
+            <td> <ul>`
+
+            console.log(job)
+
+            job.outputs.forEach((file) => {
+                hasFiles = true;
+                row += `<li><a href="#" onclick="getDownloadUrlForResource('${file.name}', '${file.spaceId}', '${file.resourceId}'); return false;">${file.name}</a></li>`
+            }) 
+    
+            job.logs.forEach((file) => {
+                hasFiles = true;
+                row += `<li><a href="#" onclick="getDownloadUrlForResource('${file.name}', '${file.spaceId}', '${file.resourceId}'); return false;">${file.name}</a></li>`
+            })
+
+            if(!hasFiles)                
+                row += `---`
+
+        row += "</ul> </td> </tr>"
 
         table.append(row);
     });
@@ -297,7 +308,7 @@ async function startNewJob() {
             contentType: false,
             success: function (data) {
                 if (data.status) {
-                    console.log("Job Success: ", data)
+                    // console.log("Job Success: ", data)
                     MyVars.jobs = MyVars.jobs.map(task => task.uuid === id ? { ...task, status: "QUEUED",  jobId: data.jobId, queueId: data.queueId} : task);
                     populateTable();
 
@@ -311,7 +322,7 @@ async function startNewJob() {
             },
             error: function (err, text) {
                 MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED"} : job);
-                console.log("Failed to create JOB: ", err.responseText)
+                // console.log("Failed to create JOB: ", err.responseText)
                 alert(err.responseText)
             },
             headers: {
@@ -343,10 +354,7 @@ async function startNewJob() {
                     MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, status: data.status, logs: data.logs, outputs: data.outputs } : job);
                     populateTable();
 
-                    console.log(data.status)
-
                     if (data.status === 'SUCCEEDED' || data.status === 'FAILED' || data.status === 'CANCELED') {
-                        console.log("Completed ... -> ", data.status)
                         clearInterval(intervalId);
                     }
 
@@ -382,4 +390,26 @@ function validateFiles(jobName, bifrostGraph, inputFile) {
     }
 
     return true;
+}
+
+function getDownloadUrlForResource(name, spaceId, resourceId) {
+    $.ajax({
+        url: `https://developer.api.autodesk.com/flow/storage/v1/spaces/${spaceId}/resources/${resourceId}/download-url`,
+        type: "GET",
+        headers: {
+            'Authorization': `Bearer ${MyVars.token}`,
+        },
+        success: function (data) {
+            const a = document.createElement('a');
+            a.href = data.url;
+            a.download = `${name}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        },
+        error: function (err, text) {
+            console.log("Fetching signed URL failed", text, err.responseText)
+            alert("Fetching signed URL failed: " + err.responseText)
+        }
+    });
 }

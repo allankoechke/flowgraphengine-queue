@@ -116,6 +116,10 @@ Blogs:
 
 - [APS Blog](https://aps.autodesk.com/blog)
 
+## Known Issues
+- The resultant file downloads dont come with the correct file extensions, you have to affix them on the file save dialog.
+- There is no persistent credential storage nor token storage. Authetication has to be done on each reload or restart.
+
 ## License
 
 This sample is licensed under the terms of the [MIT License](http://opensource.org/licenses/MIT).
