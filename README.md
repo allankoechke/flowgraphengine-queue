@@ -1,7 +1,7 @@
 # Flow Graph Engine Job Queue
 
-[![Node.js](https://img.shields.io/badge/Node.js-10.16.2-blue.svg)](https://nodejs.org/)
-[![npm](https://img.shields.io/badge/npm-6.9.0-blue.svg)](https://www.npmjs.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-21.7.1-blue.svg)](https://nodejs.org/)
+[![npm](https://img.shields.io/badge/npm-10.5.0-blue.svg)](https://www.npmjs.com/)
 ![Platforms](https://img.shields.io/badge/platform-windows%20%7C%20osx%20%7C%20linux-lightgray.svg)
 [![License](https://img.shields.io/:license-mit-blue.svg)](https://opensource.org/licenses/MIT)
 
