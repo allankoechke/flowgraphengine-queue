@@ -87,6 +87,7 @@ Blogs:
 ## Known Issues
 - The resultant file downloads dont come with the correct file extensions, you have to affix them on the file save dialog.
 - There is no persistent credential storage nor token storage. Authetication has to be done on each reload or restart.
+- Jobs that fail on uploading can be resubmitted, unless as a new job.
 
 ## License
 
