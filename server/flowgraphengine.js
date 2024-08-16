@@ -68,11 +68,10 @@ async function completeUpload(accessToken, storageSpaceId, resourceId, uploadId,
 
 async function submitJob(accessToken, queueId, bifrostGraphUrn, inputFileUrn, { bifrostGraphPath, inputFilePath, taskName }) {
     const bifrostJsonObj = JSON.parse(fs.readFileSync(bifrostGraphPath));
-    // console.log(bifrostJsonObj, JSON.stringify(bifrostJsonObj))
     if (!bifrostJsonObj) return null
 
     try {
-        const reponse = await axios.post(
+        const response = await axios.post(
             `https://developer.api.autodesk.com/flow/compute/v1/queues/${queueId}/jobs`,
             {
                 name: taskName,
@@ -170,10 +169,34 @@ async function submitJob(accessToken, queueId, bifrostGraphUrn, inputFileUrn, { 
                 }
             },
         );
-        return reponse.data.id;
+
+        return {
+            status: true,
+            jobId: response.data.id,
+            code: response.status
+        }
     } catch (e) {
         console.log("Job submission error: ", e)
-        return null
+        var message = "Job submission failed, unknown error!"
+
+        // Handle error
+        if (error.response) {
+            // The request was made, and the server responded with a status code
+            // that falls out of the range of 2xx
+            message = error.response.data;
+        } else if (error.request) {
+            // The request was made, but no response was received
+            message = `No response received: ${error.request}`;
+        } else {
+            // Something happened in setting up the request that triggered an Error
+            message = `Error in setting up the request: ${error.message}`;
+        }
+
+        return {
+            status: false,
+            message,
+            code: error.response.status
+        }
     }
 }
 

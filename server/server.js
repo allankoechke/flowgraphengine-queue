@@ -23,7 +23,7 @@ const fileUpload = require("express-fileupload");
 const cors = require("cors");
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
-const _ = require("lodash");
+// const _ = require("lodash");
 
 // prepare our API endpoint routing
 var fge = require('./flowgraphengine');
@@ -254,17 +254,19 @@ async function prepareRequest(req, res, access_token, bifrostGraphPath, inputFil
     // Submit job
     let taskName = req.body.job_name
     console.log("Task Name: ", taskName)
-    const jobId = await fge.submitJob(access_token, queueId, bifrostGraphUrn, inputFileUrn, { bifrostGraphPath, inputFilePath, taskName });
+    const jobResponse = await fge.submitJob(access_token, queueId, bifrostGraphUrn, inputFileUrn, { bifrostGraphPath, inputFilePath, taskName });
 
-    if (!jobId) {
+    if (!jobResponse.status) {
         console.log("Job submission task failed")
-        return res.status(500).send({
+        return res.status(jobResponse.code).send({
             status: false,
-            message: "Job submission failed, internal error"
+            message: jobResponse.message
         });
     }
 
+    const jobId = jobResponse.jobId;
     console.log(`Job submitted, id: ${jobId}`);
+
     return res.status(200).send({
         status: true,
         jobId,
