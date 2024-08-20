@@ -346,7 +346,7 @@ async function startNewJob() {
                 dataType: "json",
                 data: JSON.stringify({ jobId, queueId }),
                 success: function (data) {
-                    MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, status: data.status, logs: data.logs, outputs: data.outputs } : job);
+                    MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false, status: data.status, logs: data.logs, outputs: data.outputs } : job);
                     populateTable();
 
                     if (data.status === 'SUCCEEDED' || data.status === 'FAILED' || data.status === 'CANCELED') {
@@ -354,18 +354,16 @@ async function startNewJob() {
                     }
 
                 },
-                error: function (err, text) {
+                error: function (xhr, err, text) {
+                    MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false, status:  `${err.status} - INTERNAL SERVER ERROR`} : job);
+                    populateTable();
                     clearInterval(intervalId);
-                    console.log("Job Status Failed: ", err, text)
-                    // alert(`Job '${jobId}' Status Check failed\n\n` + err.responseText)
+                    console.log(xhr)
+                    console.log("Job Status Failed: \nERR: ", err, "\nTEXT: ", text)
                 }
             });
-
-            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false} : job);
-            populateTable();
         }
     }
-
 }
 
 function validateFiles(jobName, bifrostGraph, inputFile) {
