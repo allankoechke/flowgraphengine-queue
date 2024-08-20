@@ -10,7 +10,7 @@ This utility app enables you to view and create bifrost jobs, which are submitte
 
 ### Thumbnail
 
-![thumbnail](/readme/queue-dashboard.png)
+![thumbnail](screenshot.jpg)
 
 
 # Usage
