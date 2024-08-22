@@ -393,16 +393,57 @@ function getDownloadUrlForResource(name, spaceId, resourceId) {
             'Authorization': `Bearer ${MyVars.token}`,
         },
         success: function (data) {
-            const a = document.createElement('a');
-            a.href = data.url;
-            a.download = `${name}`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            streamDownloadFile(data.url, name);
         },
         error: function (err, text) {
             console.log("Fetching signed URL failed", text, err.responseText)
             alert("Fetching signed URL failed: " + err.responseText)
         }
     });
+}
+
+async function streamDownloadFile(signedUrl, filename) {
+    alert("Your file download has begun in the background. You'll be prompted with the save dialog once completed. \n\nNote it may take time depending on the file size.")
+    const response = await fetch(signedUrl);
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch the file: ${response.statusText}`);
+    }
+
+    // Create a reader to read the response body as a stream
+    const reader = response.body.getReader();
+    const chunks = []; // To hold the chunks of the file
+
+    // Function to process each chunk
+    const processChunk = async ({ done, value }) => {
+        if (done) {
+            // All chunks have been read, create a Blob from the chunks
+            const blob = new Blob(chunks);
+            const blobUrl = URL.createObjectURL(blob);
+
+            // Create a link element for download
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename;
+            document.body.appendChild(a); // Append to body
+
+            // Programmatically click the link to trigger the download
+            a.click();
+
+            // Clean up
+            URL.revokeObjectURL(blobUrl);
+            document.body.removeChild(a);
+
+            return;
+        }
+
+        // Push the current chunk to the chunks array
+        chunks.push(value);
+
+        // Read the next chunk
+        await reader.read().then(processChunk);
+    };
+
+    // Start reading the first chunk
+    await reader.read().then(processChunk);
 }
