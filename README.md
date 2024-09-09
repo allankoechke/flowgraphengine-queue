@@ -23,7 +23,7 @@ This utility app enables you to view and create bifrost jobs, which are submitte
 
 3. In the popup, fill in the **Job Name** as you like, then select the **Bifrost File** and the **Input file** and submit the form. This consequently will begin the process of submitting the new job. 
 4. On successful job submission, the *Job Id** is returned and shown on the dashboard. Automatically, this will querry for the job status periodically and the new **status** updated on the dashboard as shown above.
-5. When the job has been processed, whether ***FAILED*** or ***SUCCEEDED***, the corresponding output files and logs will be shown on the output column. Here, to fetch the files, click on the link which will fetch the file link and initiate the download. Depending on the expected file type, (.txt/.log for log files or .usd/etc for resultant files), save the file with the correct file extension as shown below.
+5. When the job has been processed, whether ***FAILED*** or ***SUCCEEDED***, the corresponding output files and logs will be shown on the output column. Here, to fetch the files, click on the link which will fetch the file link and initiate the download. A popup will be shown as below notifying you that the download has begun. Close the prompt and once the download completes, the save download will be opened.
 
 ![Save File With Extesion](/readme/save-file.png)
 
@@ -77,7 +77,6 @@ Which executes **nodemon server.js --ignore www/ files/**, where the **--ignore*
 ## Further Reading
 
 Documentation:
-
 - [Bifrost Help](https://help.autodesk.com/view/BIFROST/ENU/)
 - [Flow Graph Engine](https://aps.autodesk.com/developer/overview/flow-graph-engine-api)
 
@@ -85,9 +84,9 @@ Blogs:
 - [Flow Graph Engine Announcement](https://aps.autodesk.com/blog/introducing-first-me-oriented-aps-service-flow-graph-engine)
 
 ## Known Issues
-- The resultant file downloads dont come with the correct file extensions, you have to affix them on the file save dialog.
+- Depending on the output file sizes, beware that the file fetching will take some time to complete.
 - There is no persistent credential storage nor token storage. Authetication has to be done on each reload or restart.
-- Jobs that fail on uploading can be resubmitted, unless as a new job.
+- Jobs that fail on uploading can't be resubmitted, unless as a new job.
 
 ## License
 
