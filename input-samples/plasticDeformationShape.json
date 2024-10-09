@@ -53,9 +53,6 @@
                                             "metadata": [
                                                 {
                                                     "metaName": "filename"
-                                                },
-                                                {
-                                                    "metaName": "filename1"
                                                 }
                                             ]
                                         },
@@ -67,7 +64,7 @@
                                         {
                                             "metaName": "LayoutPos",
                                             "metaType": "string",
-                                            "metaValue": "1455.4 1077.54"
+                                            "metaValue": "1611.55 1038.5"
                                         }
                                     ]
                                 }
@@ -93,37 +90,6 @@
                                             "metaName": "zValue",
                                             "metaType": "string",
                                             "metaValue": "39.000000"
-                                        }
-                                    ]
-                                },
-                                {
-                                    "metaName": "plastic_deformation_output",
-                                    "metadata": [
-                                        {
-                                            "metaName": "DisplayMode",
-                                            "metaType": "string",
-                                            "metaValue": "2"
-                                        },
-                                        {
-                                            "metaName": "LayoutPos",
-                                            "metaType": "string",
-                                            "metaValue": "2186.5 784.469"
-                                        },
-                                        {
-                                            "metaName": "zValue",
-                                            "metaType": "string",
-                                            "metaValue": "41.000000"
-                                        },
-                                        {
-                                            "metaName": "io_ports",
-                                            "metadata": [
-                                                {
-                                                    "metaName": "out_objects"
-                                                },
-                                                {
-                                                    "metaName": "out_objects1"
-                                                }
-                                            ]
                                         }
                                     ]
                                 }
@@ -183,7 +149,7 @@
                 {
                     "metaName": "ViewportRect",
                     "metaType": "string",
-                    "metaValue": "1035.81 828.898 1668.48 1129.47"
+                    "metaValue": "581.908 182.071 2215.39 1489.94"
                 },
                 {
                     "metaName": "compoundIsGraph",
@@ -211,11 +177,6 @@
             ],
             "ports": [
                 {
-                    "portName": "out_objects",
-                    "portDirection": "output",
-                    "portType": "array<Object>"
-                },
-                {
                     "portName": "filename",
                     "portDirection": "input",
                     "portType": "string",
@@ -232,29 +193,6 @@
                             "metaValue": "browserMode=save;filter=\"Object (*.bob);;Alembic (*.abc);;OpenVDB (*.vdb);;All (*.*)\""
                         }
                     ]
-                },
-                {
-                    "portName": "filename1",
-                    "portDirection": "input",
-                    "portType": "string",
-                    "portDefault": "hello_node_two.####.bob",
-                    "metadata": [
-                        {
-                            "metaName": "UIWidget",
-                            "metaType": "string",
-                            "metaValue": "FileBrowserWidget"
-                        },
-                        {
-                            "metaName": "UIWidgetProp",
-                            "metaType": "string",
-                            "metaValue": "browserMode=save;filter=\"Object (*.bob);;Alembic (*.abc);;OpenVDB (*.vdb);;All (*.*)\""
-                        }
-                    ]
-                },
-                {
-                    "portName": "out_objects1",
-                    "portDirection": "output",
-                    "portType": "array<Object>"
                 }
             ],
             "compounds": [
@@ -1041,14 +979,14 @@
                             ]
                         },
                         {
-                            "metaName": "LayoutPos",
-                            "metaType": "string",
-                            "metaValue": "1889.58 463.884"
-                        },
-                        {
                             "metaName": "zValue",
                             "metaType": "string",
-                            "metaValue": "40.000000"
+                            "metaValue": "52.000000"
+                        },
+                        {
+                            "metaName": "LayoutPos",
+                            "metaType": "string",
+                            "metaValue": "2343.39 524.067"
                         }
                     ]
                 },
@@ -1208,55 +1146,14 @@
                             ]
                         },
                         {
-                            "metaName": "LayoutPos",
-                            "metaType": "string",
-                            "metaValue": "1899.9 784.469"
-                        },
-                        {
                             "metaName": "zValue",
                             "metaType": "string",
-                            "metaValue": "56.000000"
-                        }
-                    ]
-                },
-                {
-                    "nodeName": "file_cache",
-                    "nodeType": "Simulation::Common::file_cache",
-                    "fanInPortNames": {
-                        "objects": [
-                            "out_geometry"
-                        ]
-                    },
-                    "metadata": [
-                        {
-                            "metaName": "DisplayMode",
-                            "metaType": "string",
-                            "metaValue": "2"
+                            "metaValue": "51.000000"
                         },
                         {
                             "metaName": "LayoutPos",
                             "metaType": "string",
-                            "metaValue": "1879.27 1294.61"
-                        },
-                        {
-                            "metaName": "PortExpandedState",
-                            "metadata": [
-                                {
-                                    "metaName": "objects",
-                                    "metaType": "string",
-                                    "metaValue": "1"
-                                },
-                                {
-                                    "metaName": "Settings",
-                                    "metaType": "string",
-                                    "metaValue": "1"
-                                }
-                            ]
-                        },
-                        {
-                            "metaName": "zValue",
-                            "metaType": "string",
-                            "metaValue": "58.000000"
+                            "metaValue": "1956.83 520.964"
                         }
                     ]
                 }
@@ -1287,14 +1184,6 @@
                     "target": "make_mpm_shell.geometry.out_points1"
                 },
                 {
-                    "source": "assign_material.out_geometry",
-                    "target": "terminal1.final.out_geometry"
-                },
-                {
-                    "source": "assign_material.out_geometry",
-                    "target": "terminal1.proxy.out_geometry"
-                },
-                {
                     "source": "standard_surface_mat1.standard_surface",
                     "target": "assign_material.surface_material"
                 },
@@ -1307,24 +1196,16 @@
                     "target": "plastic_deformation_file_cache.objects.out_geometry"
                 },
                 {
-                    "source": "plastic_deformation_file_cache.out_objects",
-                    "target": ".out_objects"
-                },
-                {
                     "source": ".filename",
                     "target": "plastic_deformation_file_cache.filename"
                 },
                 {
-                    "source": "assign_material.out_geometry",
-                    "target": "file_cache.objects.out_geometry"
+                    "source": "plastic_deformation_file_cache.out_objects",
+                    "target": "terminal1.final.out_geometry"
                 },
                 {
-                    "source": ".filename1",
-                    "target": "file_cache.filename"
-                },
-                {
-                    "source": "file_cache.out_objects",
-                    "target": ".out_objects1"
+                    "source": "plastic_deformation_file_cache.out_objects",
+                    "target": "terminal1.proxy.out_geometry"
                 }
             ],
             "values": [
@@ -1469,26 +1350,6 @@
                     "valueName": "plastic_deformation_file_cache.last_frame",
                     "valueType": "float",
                     "value": "200f"
-                },
-                {
-                    "valueName": "file_cache.mode",
-                    "valueType": "Simulation::Common::file_cache_mode",
-                    "value": "Write Mode"
-                },
-                {
-                    "valueName": "file_cache.filename",
-                    "valueType": "string",
-                    "value": "hello_node_two.####.bob"
-                },
-                {
-                    "valueName": "file_cache.active_frame_range",
-                    "valueType": "bool",
-                    "value": "false"
-                },
-                {
-                    "valueName": "file_cache.last_frame",
-                    "valueType": "float",
-                    "value": "200f"
                 }
             ],
             "reservedNodeNames": [
@@ -1500,9 +1361,6 @@
                 },
                 {
                     "name": "input1"
-                },
-                {
-                    "name": "plastic_deformation_output"
                 }
             ]
         }

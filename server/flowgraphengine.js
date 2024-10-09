@@ -108,7 +108,7 @@ async function submitJob(accessToken, queueId, bifrostGraphUrn, { bifrostGraphPa
                                 inputPorts: [
                                     {
                                         name: "filename",
-                                        value: "node_one.####.bob",
+                                        value: "file_cache.####.bob",
                                         type: "string"
                                     }
                                 ]
@@ -118,10 +118,10 @@ async function submitJob(accessToken, queueId, bifrostGraphUrn, { bifrostGraphPa
                                     outputs: [
                                         {
                                             source: {
-                                                path: "node_one.{executionId:04}.bob"
+                                                path: "file_cache.{executionId:04}.bob"
                                             },
                                             target: {
-                                                name: "node_one.{executionId:04}.bob"
+                                                name: "file_cache.{executionId:04}.bob"
                                             }
                                         }
                                     ],
