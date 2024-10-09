@@ -2,3 +2,5 @@ node_modules
 .vscode
 .env
 files/
+Outputs/
+setup.txt

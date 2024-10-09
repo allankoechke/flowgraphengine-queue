@@ -87,24 +87,23 @@ function populateTable() {
         var row = `<tr>
             <th scope="row">${index + 1}</th>
             <td>${job.name}</td>
-            <td>${job.jobId==="" ? "---" : job.jobId}</td>
+            <td>${job.jobId === "" ? "---" : job.jobId}</td>
             <td>${job.status}</td>
             <td> <ul>`
 
-            console.log(job)
+        var countLogs = job.logs.length;
+        var countOutputs = job.outputs.length;
+        hasFiles = countLogs > 0 || countOutputs > 0;
 
-            job.outputs.forEach((file) => {
-                hasFiles = true;
-                row += `<li><a href="#" onclick="getDownloadUrlForResource('${file.name}', '${file.spaceId}', '${file.resourceId}'); return false;">${file.name}</a></li>`
-            }) 
-    
-            job.logs.forEach((file) => {
-                hasFiles = true;
-                row += `<li><a href="#" onclick="getDownloadUrlForResource('${file.name}', '${file.spaceId}', '${file.resourceId}'); return false;">${file.name}</a></li>`
-            })
+        // Show count of files
+        if (hasFiles) {
+            row += `<li><a href="#" onclick="outputLinkClicked('${job.dir}'); return false;">[ ${countOutputs} Output Files ]</a></li>`
+            row += `<li><a href="#" onclick="outputLinkClicked('${job.dir}'); return false;">[ ${countLogs} Log files ]</a></li>`
+        }
 
-            if(!hasFiles)                
-                row += `---`
+        else {
+            row += `---`
+        }
 
         row += "</ul> </td> </tr>"
 
@@ -163,23 +162,27 @@ function populateModal() {
             'value': '',
             'type': ".json"
         },
-        'inputFile': {
-            'file': 'Input File (USD)',
-            'text': 'Input File (USD)',
-            'placeholder': '<input USD file>',
-            'value': '',
-            'type': ".usd"
+        'startFrame': {
+            'text': 'Start Frame',
+            'placeholder': '',
+            'value': 1,
+            'type': "number",
+            'min': 1
+        },
+        'endFrame': {
+            'text': 'End Frame',
+            'placeholder': '',
+            'value': 50,
+            'type': "number",
+            'min': 1,
         }
     };
 
-    getInputs('Create New Job', inputs, () => {
-        // Handle onCreate action
-        // console.log(inputs)
-    });
+    getInputs('Create New Job', inputs);
 }
 
 // 'inputs' is an array of objects with 'text', 'placeholder' and 'value' parameters 
-function getInputs(title, inputs, callback) {
+function getInputs(title, inputs) {
     console.log('getInputs');
     const modelDialog = 'myModal'
 
@@ -188,8 +191,6 @@ function getInputs(title, inputs, callback) {
 
     Object.keys(inputs).forEach(function (key) {
         let inputGroup = $('<div class="input-group mb-3">');
-        //inputGroup.addClass('input-group mb-3');
-
         let input = inputs[key];
 
         if (input.file !== undefined) {
@@ -213,7 +214,7 @@ function getInputs(title, inputs, callback) {
                 <div class="input-group-addon">
                     <span class="input-group-text" id="${modelDialog}_${key}_prepend">${input.text}</span>
                 </div>
-                <input id="${modelDialog}_${key}" type="text" class="form-control" placeholder="${input.placeholder}" aria-label="${modelDialog}_${key}" aria-describedby="${modelDialog}_${key}_prepend" value="${input.value}" />
+                <input id="${modelDialog}_${key}" type="${input.type ? input.type : 'text'}" ${input.type==='number' && `min=${input.min}`} class="form-control" placeholder="${input.placeholder}" aria-label="${modelDialog}_${key}" aria-describedby="${modelDialog}_${key}_prepend" value="${input.value}" />
                 `)
         }
 
@@ -267,13 +268,16 @@ function getInputs(title, inputs, callback) {
 async function startNewJob() {
     var jobName = $("#myModal_jobName");
     var bifrostGraph = $("#myModal_bifrostGraph");
-    var inputFile = $("#myModal_inputFile");
+    var startFrame = $("#myModal_startFrame");
+    var endFrame = $("#myModal_endFrame");
 
-    if (validateFiles(jobName, bifrostGraph, inputFile)) {
+    if (validateFiles(jobName, bifrostGraph, startFrame, endFrame)) {
         const formData = new FormData();
-        formData.append('input_files', inputFile.prop("files")[0]);
+        // formData.append('input_files', inputFile.prop("files")[0]);
         formData.append('bifrost_files', bifrostGraph.prop("files")[0]);
         formData.append('job_name', jobName.val());
+        formData.append('startFrame', startFrame.val());
+        formData.append('endFrame', endFrame.val());
 
         var id = uuidv4();
 
@@ -287,6 +291,7 @@ async function startNewJob() {
             status: "UPLOADING",
             outputs: [],
             logs: [],
+            dir: "",
             anotherStatusRequestPending: false
         }
 
@@ -346,7 +351,7 @@ async function startNewJob() {
                 dataType: "json",
                 data: JSON.stringify({ jobId, queueId }),
                 success: function (data) {
-                    MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false, status: data.status, logs: data.logs, outputs: data.outputs } : job);
+                    MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, status: data.status, logs: data.logs, outputs: data.outputs, dir: data.dir } : job);
                     populateTable();
 
                     if (data.status === 'SUCCEEDED' || data.status === 'FAILED' || data.status === 'CANCELED') {
@@ -354,19 +359,21 @@ async function startNewJob() {
                     }
 
                 },
-                error: function (xhr, err, text) {
-                    MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false, status:  `${err.status} - INTERNAL SERVER ERROR`} : job);
-                    populateTable();
+                error: function (err, text) {
                     clearInterval(intervalId);
-                    console.log(xhr)
-                    console.log("Job Status Failed: \nERR: ", err, "\nTEXT: ", text)
+                    console.log("Job Status Failed: ", err, text)
+                    // alert(`Job '${jobId}' Status Check failed\n\n` + err.responseText)
                 }
             });
+
+            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false} : job);
+            populateTable();
         }
     }
+
 }
 
-function validateFiles(jobName, bifrostGraph, inputFile) {
+function validateFiles(jobName, bifrostGraph, startFrame, endFrame) {
     if (!jobName || jobName.val() === "") {
         alert("Job Name is required");
         return false;
@@ -377,73 +384,19 @@ function validateFiles(jobName, bifrostGraph, inputFile) {
         return false;
     }
 
-    if (!inputFile || inputFile.prop("files").length === 0 || inputFile.prop("files")[0].name === "" || !inputFile.prop("files")[0].name.endsWith(".usd")) {
-        alert("Input File Error\n\nInput file is required, please select a file with a .usd extension.");
+    if (!startFrame || startFrame.val() === "") {
+        alert("Simulation start frame is required");
+        return false;
+    }
+
+    if (!endFrame || endFrame.val() === "") {
+        alert("Simulation end frame is required");
         return false;
     }
 
     return true;
 }
 
-function getDownloadUrlForResource(name, spaceId, resourceId) {
-    $.ajax({
-        url: `https://developer.api.autodesk.com/flow/storage/v1/spaces/${spaceId}/resources/${resourceId}/download-url`,
-        type: "GET",
-        headers: {
-            'Authorization': `Bearer ${MyVars.token}`,
-        },
-        success: function (data) {
-            streamDownloadFile(data.url, name);
-        },
-        error: function (err, text) {
-            console.log("Fetching signed URL failed", text, err.responseText)
-            alert("Fetching signed URL failed: " + err.responseText)
-        }
-    });
-}
-
-async function streamDownloadFile(signedUrl, filename) {
-    alert("Your file download has begun in the background. You'll be prompted with the save dialog once completed. \n\nNote it may take time depending on the file size.")
-    const response = await fetch(signedUrl);
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch the file: ${response.statusText}`);
-    }
-
-    // Create a reader to read the response body as a stream
-    const reader = response.body.getReader();
-    const chunks = []; // To hold the chunks of the file
-
-    // Function to process each chunk
-    const processChunk = async ({ done, value }) => {
-        if (done) {
-            // All chunks have been read, create a Blob from the chunks
-            const blob = new Blob(chunks);
-            const blobUrl = URL.createObjectURL(blob);
-
-            // Create a link element for download
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = filename;
-            document.body.appendChild(a); // Append to body
-
-            // Programmatically click the link to trigger the download
-            a.click();
-
-            // Clean up
-            URL.revokeObjectURL(blobUrl);
-            document.body.removeChild(a);
-
-            return;
-        }
-
-        // Push the current chunk to the chunks array
-        chunks.push(value);
-
-        // Read the next chunk
-        await reader.read().then(processChunk);
-    };
-
-    // Start reading the first chunk
-    await reader.read().then(processChunk);
+function outputLinkClicked(dir) {
+    alert(`Navigate to the directory below to view your output and log files. \n\n${dir}`)
 }

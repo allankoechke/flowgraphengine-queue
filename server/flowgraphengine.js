@@ -66,7 +66,7 @@ async function completeUpload(accessToken, storageSpaceId, resourceId, uploadId,
     return response.data.urn;
 };
 
-async function submitJob(accessToken, queueId, bifrostGraphUrn, inputFileUrn, { bifrostGraphPath, inputFilePath, taskName }) {
+async function submitJob(accessToken, queueId, bifrostGraphUrn, { bifrostGraphPath, taskName, startFrame, endFrame }) {
     const bifrostJsonObj = JSON.parse(fs.readFileSync(bifrostGraphPath));
     if (!bifrostJsonObj) return null
 
@@ -75,90 +75,67 @@ async function submitJob(accessToken, queueId, bifrostGraphUrn, inputFileUrn, { 
             `https://developer.api.autodesk.com/flow/compute/v1/queues/${queueId}/jobs`,
             {
                 name: taskName,
-                tags: ['sample app'],
+                tags: [ "sample app" ],
                 tasks: [
                     {
-                        name: 'execute bifrost graph',
-                        type: 'task',
-                        // Select the bifrost executor
-                        executor: 'bifrost',
-                        // Gloabl job inputs. We will provide our input file in the bifrost specific executions section instead of using this for now.
-                        // If we would have provided the inputs here instead it would be present for every execution.
-                        // For this example, it doesn't matter since we are only running a single frame execution.
-                        inputs: [
-                        ],
+                        name: taskName,
+                        type: "task",
+                        executor: "bifrost",
                         limitations: {
-                            maxExecutionTimeInSeconds: 600,
+                            maxExecutionTimeInSeconds: 600
                         },
                         payload: {
-                            action: 'Evaluate',
+                            action: "Evaluate",
                             options: {
-                                // Specify which bifrost compound to execute
                                 compound: bifrostJsonObj.compounds[0].name,
                                 frames: {
-                                    start: 1,
-                                    end: 1,
+                                    start: startFrame,
+                                    end: endFrame
                                 },
-                                // Specify the version of bifrost
-                                bifrostVersion: '2.9.0.0'
+                                bifrostVersion: "2.11.0.0"
                             },
-                            // Specify the bifrost files to download and load.
-                            definitionFiles: [{
-                                source: {
-                                    uri: bifrostGraphUrn
-                                },
-                                target: {
-                                    path: path.parse(bifrostGraphPath).base
-                                },
-                            }
+                            definitionFiles: [
+                                {
+                                    source: {
+                                        uri: bifrostGraphUrn
+                                    },
+                                    target: {
+                                        path: path.parse(bifrostGraphPath).base
+                                    }
+                                }
                             ],
-                            // Specify what value to input into the bifrost graph ports
                             ports: {
                                 inputPorts: [
                                     {
-                                        name: 'inputFilename',
-                                        value: path.parse(inputFilePath).base,
-                                        type: 'string',
-                                    },
-                                    {
-                                        name: 'outputFilename',
-                                        value: `o-${path.parse(inputFilePath).base}`,
-                                        type: 'string',
+                                        name: "filename",
+                                        value: "node_one.####.bob",
+                                        type: "string"
                                     }
-                                ],
-                                jobPorts: [],
+                                ]
                             },
-                            // parameters for each bifrost execution
-                            // in this case we only have a single for frame 1.
                             executions: [
                                 {
-                                    inputs: [
-                                        {
-                                            source: {
-                                                uri: inputFileUrn,
-                                            },
-                                            target: {
-                                                path: path.parse(inputFilePath).base,
-                                            }
-                                        },
-                                    ],
                                     outputs: [
                                         {
                                             source: {
-                                                path: `o-${path.parse(inputFilePath).base}`,
+                                                path: "node_one.{executionId:04}.bob"
                                             },
                                             target: {
-                                                name: `o-${path.parse(inputFilePath).base}`,
+                                                name: "node_one.{executionId:04}.bob"
                                             }
                                         }
                                     ],
-                                    frameId: 1,
+                                    templateRange: {
+                                        start: startFrame,
+                                        end: endFrame
+                                    },
+                                    frameId: "{executionId}"
                                 }
-                            ],
+                            ]
                         },
                         requirements: {
-                            cpu: 4,
-                            memory: 30720,
+                            cpu: 16,
+                            memory: 30720
                         }
                     }
                 ]
@@ -175,8 +152,8 @@ async function submitJob(accessToken, queueId, bifrostGraphUrn, inputFileUrn, { 
             jobId: response.data.id,
             code: response.status
         }
-    } catch (e) {
-        console.log("Job submission error: ", e)
+    } catch (error) {
+        console.log("Job submission error: ", error.response)
         var message = "Job submission failed, unknown error!"
 
         // Handle error
@@ -224,9 +201,9 @@ async function getJob(accessToken, queueId, jobId) {
     return response.data;
 }
 
-async function getLogs(accessToken, queueId, jobId) {
+async function getLogs(url, accessToken) {
     const response = await axios.get(
-        `https://developer.api.autodesk.com/flow/compute/v1/queues/${queueId}/jobs/${jobId}/logs`,
+        url,
         {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -236,9 +213,9 @@ async function getLogs(accessToken, queueId, jobId) {
     return response.data;
 }
 
-async function getOutputs(accessToken, queueId, jobId) {
+async function getOutputs(url, accessToken) {
     const response = await axios.get(
-        `https://developer.api.autodesk.com/flow/compute/v1/queues/${queueId}/jobs/${jobId}/outputs`,
+        url,
         {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -266,6 +243,25 @@ async function waitForJobToComplete(accessToken, queueId, jobId) {
 async function getDownloadUrlForResource(accessToken, spaceId, resourceId) {
     const response = await axios.get(
         `https://developer.api.autodesk.com/flow/storage/v1/spaces/${spaceId}/resources/${resourceId}/download-url`,
+        {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        },
+    );
+    return response.data;
+}
+
+async function getBatchDownloadUrlForResource(accessToken, spaceId, resourceIds) {
+    var arr = [];
+    for(var i=0; i<resourceIds.length; i++) {
+        arr.push({resourceId: resourceIds[i]})
+    }
+    const response = await axios.post(
+        `https://developer.api.autodesk.com/flow/storage/v1/spaces/${spaceId}/resources:batch-get-download-urls?expirationInMinutes=5`,
+        {
+            resources: arr
+        },
         {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -310,6 +306,7 @@ module.exports = {
     getOutputs,
     waitForJobToComplete,
     getDownloadUrlForResource,
+    getBatchDownloadUrlForResource,
     downloadFileFromSignedUrl,
     createDirectory
 };
