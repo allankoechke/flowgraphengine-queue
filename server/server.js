@@ -30,7 +30,7 @@ var fge = require('./flowgraphengine');
 var app = express();
 const APP_ROOT_DIR = path.join(__dirname + '/../'); // Application root directory
 const APP_OUTPUT_DIR = path.join(APP_ROOT_DIR, "Outputs")
-console.log(APP_ROOT_DIR)
+// console.log(APP_ROOT_DIR)
 
 // Middleware to extract access token
 function extractToken(req, res, next) {
@@ -182,7 +182,7 @@ app.post('/job/status', extractToken, async (req, res) => {
 
         let queueId = req.body.queueId;
         let jobId = req.body.jobId;
-        var resObj = { status: job.status, error: null, outputs: [], logs: [], dir: outputsDirectory };
+        var resObj = { status: job.status, error: null, outputs: [], logs: [], dir: outputsDirectory.replace(/\\/g, '/').toString()+"/" };
 
         try {
             var outputs = undefined;

@@ -55,6 +55,8 @@ $(document).ready(function () {
 
 function clearModalFields() {
     $('#myModal_body input').val('');
+    $("#myModal_startFrame").val(1);
+    $("#myModal_endFrame").val(100);
 }
 
 function closeModal() {
@@ -172,7 +174,7 @@ function populateModal() {
         'endFrame': {
             'text': 'End Frame',
             'placeholder': '',
-            'value': 50,
+            'value': 100,
             'type': "number",
             'min': 1,
         }
@@ -398,5 +400,6 @@ function validateFiles(jobName, bifrostGraph, startFrame, endFrame) {
 }
 
 function outputLinkClicked(dir) {
-    alert(`Navigate to the directory below to view your output and log files. \n\n${dir}`)
+    navigator.clipboard.writeText(dir)
+    alert(`Navigate to the directory below to view your output and log files. \n\n${dir}\nPath copied to clipboard.`)
 }
