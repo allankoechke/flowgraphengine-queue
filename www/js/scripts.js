@@ -401,5 +401,5 @@ function validateFiles(jobName, bifrostGraph, startFrame, endFrame) {
 
 function outputLinkClicked(dir) {
     navigator.clipboard.writeText(dir)
-    alert(`Navigate to the directory below to view your output and log files. \n\n${dir}\nPath copied to clipboard.`)
+    alert(`Navigate to the directory below to view your output and log files. \n\n${dir}\n\nPath copied to clipboard.`)
 }
