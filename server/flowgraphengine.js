@@ -92,7 +92,7 @@ async function submitJob(accessToken, queueId, bifrostGraphUrn, { bifrostGraphPa
                                     start: startFrame,
                                     end: endFrame
                                 },
-                                bifrostVersion: "2.11.0.0"
+                                bifrostVersion: "2.12.1.0"
                             },
                             definitionFiles: [
                                 {
