@@ -60,6 +60,35 @@ app.use('/css', express.static(__dirname + '/../node_modules/bootstrap/dist/css'
 app.use('/fonts', express.static(__dirname + '/../node_modules/bootstrap/dist/fonts')); // redirect static calls
 app.set('port', process.env.PORT || 3000); // main port
 
+// Handle POST requests to root path
+app.post('/sendjob', (req, res) => {
+    // Extract URL parameters
+    const client_id = req.query.client_id;
+    const client_secret = req.query.client_secret;
+    const input_path = req.query.input_path;
+
+    // Validate required parameters
+    if (!client_id || !client_secret) { // TODO: || !input_path) {
+        return res.status(400).send({
+            status: false,
+            message: 'Missing required parameters: client_id, client_secret, and input_path'
+        });
+    }
+
+    // Execute your extra code here
+    // 1. Authenticate with APS
+    // 2. Create automatically a job, based on the file, taking the file name as job name, default frame parameters
+    // 3. Update the html with that
+    // 4. Send the job to the Flow Graph Engine
+
+    
+    // You can either:
+    // 1. Serve the same static content as GET
+    res.sendFile(path.join(__dirname, '../www/index.html'));
+    
+});
+
+
 function validateFiles(req, res) {
     return true;
 }
