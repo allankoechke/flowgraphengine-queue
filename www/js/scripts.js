@@ -4,17 +4,28 @@ var MyVars = {
 }
 
 $(document).ready(function () {
-    // check URL params
     var url = new URL(window.location.href);
+    var token = url.searchParams.get("token");
+    var job_name = url.searchParams.get("job_name");
+    var start_frame = url.searchParams.get("start_frame");
+    var end_frame = url.searchParams.get("end_frame");
+    var input_path = url.searchParams.get("input_path");
+
+    // If client_id is set, set it
+    // This is optional, but if set, it will be used for user authentication
     var client_id = url.searchParams.get("client_id");
     if (client_id) {
         $("#client_id").val(client_id);
     }
+
+    // If client_secret is set, set it
+    // This is optional, but if set, it will be used for user authentication
     var client_secret = url.searchParams.get("client_secret");
     if (client_secret) {
         $("#client_secret").val(client_secret);
     }
 
+    // Set auth click handler
     var auth = $("#authenticate")
     auth.click(function () {
         populateTable();
@@ -51,10 +62,30 @@ $(document).ready(function () {
 
     populateModal();
 
+    if (token) {
+        MyVars.token = token;
+        $("#authenticate").html('You\'re logged in').addClass('disabled');
+        $("#createNewJob").show();
+
+        // If all job params are present, auto-create a job
+        if (token && job_name && start_frame && end_frame && input_path) {
+            // console.log("Auto-creating job with params:", start_frame, end_frame, input_path);
+
+            // Prepare form data for /jobs endpoint
+            startNewJob({
+                job_name: job_name,
+                start_frame: start_frame,
+                end_frame: end_frame,
+                input_path: input_path
+            });
+        }
+    }
 }); // $(document).ready
 
 function clearModalFields() {
     $('#myModal_body input').val('');
+    $("#myModal_startFrame").val(1);
+    $("#myModal_endFrame").val(100);
 }
 
 function closeModal() {
@@ -82,29 +113,28 @@ function populateTable() {
 
     MyVars.jobs.forEach((job, index, _) => {
         hasFiles = false;
-        
+
 
         var row = `<tr>
             <th scope="row">${index + 1}</th>
             <td>${job.name}</td>
-            <td>${job.jobId==="" ? "---" : job.jobId}</td>
+            <td>${job.jobId === "" ? "---" : job.jobId}</td>
             <td>${job.status}</td>
             <td> <ul>`
 
-            console.log(job)
+        var countLogs = job.logs.length;
+        var countOutputs = job.outputs.length;
+        hasFiles = countLogs > 0 || countOutputs > 0;
 
-            job.outputs.forEach((file) => {
-                hasFiles = true;
-                row += `<li><a href="#" onclick="getDownloadUrlForResource('${file.name}', '${file.spaceId}', '${file.resourceId}'); return false;">${file.name}</a></li>`
-            }) 
-    
-            job.logs.forEach((file) => {
-                hasFiles = true;
-                row += `<li><a href="#" onclick="getDownloadUrlForResource('${file.name}', '${file.spaceId}', '${file.resourceId}'); return false;">${file.name}</a></li>`
-            })
+        // Show count of files
+        if (hasFiles) {
+            row += `<li><a href="#" onclick="outputLinkClicked('${job.dir}'); return false;">[ ${countOutputs} Output Files ]</a></li>`
+            row += `<li><a href="#" onclick="outputLinkClicked('${job.dir}'); return false;">[ ${countLogs} Log files ]</a></li>`
+        }
 
-            if(!hasFiles)                
-                row += `---`
+        else {
+            row += `---`
+        }
 
         row += "</ul> </td> </tr>"
 
@@ -163,23 +193,27 @@ function populateModal() {
             'value': '',
             'type': ".json"
         },
-        'inputFile': {
-            'file': 'Input File (USD)',
-            'text': 'Input File (USD)',
-            'placeholder': '<input USD file>',
-            'value': '',
-            'type': ".usd"
+        'startFrame': {
+            'text': 'Start Frame',
+            'placeholder': '',
+            'value': 1,
+            'type': "number",
+            'min': 1
+        },
+        'endFrame': {
+            'text': 'End Frame',
+            'placeholder': '',
+            'value': 100,
+            'type': "number",
+            'min': 1,
         }
     };
 
-    getInputs('Create New Job', inputs, () => {
-        // Handle onCreate action
-        // console.log(inputs)
-    });
+    getInputs('Create New Job', inputs);
 }
 
 // 'inputs' is an array of objects with 'text', 'placeholder' and 'value' parameters 
-function getInputs(title, inputs, callback) {
+function getInputs(title, inputs) {
     console.log('getInputs');
     const modelDialog = 'myModal'
 
@@ -188,8 +222,6 @@ function getInputs(title, inputs, callback) {
 
     Object.keys(inputs).forEach(function (key) {
         let inputGroup = $('<div class="input-group mb-3">');
-        //inputGroup.addClass('input-group mb-3');
-
         let input = inputs[key];
 
         if (input.file !== undefined) {
@@ -213,7 +245,7 @@ function getInputs(title, inputs, callback) {
                 <div class="input-group-addon">
                     <span class="input-group-text" id="${modelDialog}_${key}_prepend">${input.text}</span>
                 </div>
-                <input id="${modelDialog}_${key}" type="text" class="form-control" placeholder="${input.placeholder}" aria-label="${modelDialog}_${key}" aria-describedby="${modelDialog}_${key}_prepend" value="${input.value}" />
+                <input id="${modelDialog}_${key}" type="${input.type ? input.type : 'text'}" ${input.type === 'number' && `min=${input.min}`} class="form-control" placeholder="${input.placeholder}" aria-label="${modelDialog}_${key}" aria-describedby="${modelDialog}_${key}_prepend" value="${input.value}" />
                 `)
         }
 
@@ -261,25 +293,57 @@ function getInputs(title, inputs, callback) {
     })
 
     // Start a new job when submitted
-    $('#myModal_Create').on('click', startNewJob);
+    $('#myModal_Create').on('click', () => startNewJob());
 }
 
-async function startNewJob() {
-    var jobName = $("#myModal_jobName");
-    var bifrostGraph = $("#myModal_bifrostGraph");
-    var inputFile = $("#myModal_inputFile");
+async function startNewJob(form_data = undefined) {
+    var jobName = undefined;
+    var bifrostGraph = undefined;
+    var startFrame = undefined;
+    var endFrame = undefined;
 
-    if (validateFiles(jobName, bifrostGraph, inputFile)) {
+    // If bifrostGraph is a file input, append the file
+    var isUsingModalData = (form_data === undefined);
+
+    if (isUsingModalData) {
+        console.log("Using modal data");
+        // Get form data from modal
+        // handle form data from modal
+        jobName = $("#myModal_jobName").val();
+        bifrostGraph = $("#myModal_bifrostGraph");
+        startFrame = $("#myModal_startFrame").val();
+        endFrame = $("#myModal_endFrame").val();
+    } else {
+        console.log("Using form data passed in");
+        // If form_data is provided, use it
+        // handle form data from path params
+        jobName = form_data.job_name;
+        bifrostGraph = form_data.input_path;
+        startFrame = form_data.start_frame;
+        endFrame = form_data.end_frame;
+    }
+
+    if (validateFiles(jobName, bifrostGraph, startFrame, endFrame, isUsingModalData)) {
         const formData = new FormData();
-        formData.append('input_files', inputFile.prop("files")[0]);
-        formData.append('bifrost_files', bifrostGraph.prop("files")[0]);
-        formData.append('job_name', jobName.val());
+        formData.append('job_name', jobName);
+        formData.append('startFrame', startFrame);
+        formData.append('endFrame', endFrame);
+
+        // Prefer file upload if present, else use path
+        if (isUsingModalData) {
+            formData.append('bifrost_files', bifrostGraph.prop("files")[0]);
+        } else {
+            formData.append('input_path', bifrostGraph);
+        }
+
+        console.log("Starting new job with form data: \n", formData);
 
         var id = uuidv4();
-
+        // Create a new job object
+        // This will be used to track the job in the UI
         var job = {
             uuid: id,
-            name: jobName.val(),
+            name: jobName,
             inputFiles: [],
             jobId: "",
             queueId: "",
@@ -287,10 +351,12 @@ async function startNewJob() {
             status: "UPLOADING",
             outputs: [],
             logs: [],
+            dir: "",
             anotherStatusRequestPending: false
         }
 
-        closeModal();
+        if (isUsingModalData)
+            closeModal();
         MyVars.jobs.push(job);
         populateTable();
 
@@ -303,20 +369,20 @@ async function startNewJob() {
             success: function (data) {
                 if (data.status) {
                     // console.log("Job Success: ", data)
-                    MyVars.jobs = MyVars.jobs.map(task => task.uuid === id ? { ...task, status: "QUEUED",  jobId: data.jobId, queueId: data.queueId} : task);
+                    MyVars.jobs = MyVars.jobs.map(task => task.uuid === id ? { ...task, status: "QUEUED", jobId: data.jobId, queueId: data.queueId } : task);
                     populateTable();
 
                     const intervalId = setInterval(() => {
                         // Call the function and pass the handle (intervalId) to it
                         checkStatus(data.jobId, data.queueId, intervalId);
                     }, 5000);
-                } else {                    
-                    MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED"} : job);
+                } else {
+                    MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED" } : job);
                     populateTable();
                 }
             },
             error: function (err, text) {
-                MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED"} : job);
+                MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED" } : job);
                 populateTable();
                 alert(err.responseText)
             },
@@ -333,8 +399,8 @@ async function startNewJob() {
         // Update job item
         var foundIndex = MyVars.jobs.findIndex(job => job.jobId === jobId);
 
-        if (foundIndex>=0 && !MyVars.jobs[foundIndex].anotherStatusRequestPending) {
-            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: true} : job);
+        if (foundIndex >= 0 && !MyVars.jobs[foundIndex].anotherStatusRequestPending) {
+            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: true } : job);
 
             $.ajax({
                 url: '/job/status',
@@ -346,7 +412,7 @@ async function startNewJob() {
                 dataType: "json",
                 data: JSON.stringify({ jobId, queueId }),
                 success: function (data) {
-                    MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false, status: data.status, logs: data.logs, outputs: data.outputs } : job);
+                    MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, status: data.status, logs: data.logs, outputs: data.outputs, dir: data.dir } : job);
                     populateTable();
 
                     if (data.status === 'SUCCEEDED' || data.status === 'FAILED' || data.status === 'CANCELED') {
@@ -354,96 +420,54 @@ async function startNewJob() {
                     }
 
                 },
-                error: function (xhr, err, text) {
-                    MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false, status:  `${err.status} - INTERNAL SERVER ERROR`} : job);
-                    populateTable();
+                error: function (err, text) {
                     clearInterval(intervalId);
-                    console.log(xhr)
-                    console.log("Job Status Failed: \nERR: ", err, "\nTEXT: ", text)
+                    console.log("Job Status Failed: ", err, text)
+                    // alert(`Job '${jobId}' Status Check failed\n\n` + err.responseText)
                 }
             });
+
+            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false } : job);
+            populateTable();
         }
     }
+
 }
 
-function validateFiles(jobName, bifrostGraph, inputFile) {
-    if (!jobName || jobName.val() === "") {
+function validateFiles(jobName, bifrostGraph, startFrame, endFrame, isModalData) {
+    if (!jobName || jobName.length === 0) {
         alert("Job Name is required");
         return false;
     }
 
-    if (!bifrostGraph || bifrostGraph.prop("files").length === 0 || bifrostGraph.prop("files")[0].name === "" || !bifrostGraph.prop("files")[0].name.endsWith(".json")) {
-        alert("Input File Error\n\nBifrost Graph is required, please select a graph file with a .json extension.");
+    if (isModalData) {
+        // If using modal data, bifrostGraph is a file input
+        if (!bifrostGraph || bifrostGraph.prop("files").length === 0 || bifrostGraph.prop("files")[0].name === "" || !bifrostGraph.prop("files")[0].name.endsWith(".json")) {
+            alert("Input File Error\n\nBifrost Graph is required, please select a graph file with a .json extension.");
+            return false;
+        }
+    } else {
+        // If using path data, bifrostGraph is a string
+        if (!bifrostGraph || bifrostGraph.length < 5 || !bifrostGraph.endsWith(".json")) {
+            alert("Input File Error\n\nBifrost Graph is required, please select a graph file with a .json extension.");
+            return false;
+        }
+    }
+
+    if (!startFrame || isNaN(startFrame) || startFrame < 1) {
+        alert("A vaid simulation start frame is required");
         return false;
     }
 
-    if (!inputFile || inputFile.prop("files").length === 0 || inputFile.prop("files")[0].name === "" || !inputFile.prop("files")[0].name.endsWith(".usd")) {
-        alert("Input File Error\n\nInput file is required, please select a file with a .usd extension.");
+    if (!endFrame || isNaN(endFrame) || endFrame < 1) {
+        alert("A valid simulation end frame is required");
         return false;
     }
 
     return true;
 }
 
-function getDownloadUrlForResource(name, spaceId, resourceId) {
-    $.ajax({
-        url: `https://developer.api.autodesk.com/flow/storage/v1/spaces/${spaceId}/resources/${resourceId}/download-url`,
-        type: "GET",
-        headers: {
-            'Authorization': `Bearer ${MyVars.token}`,
-        },
-        success: function (data) {
-            streamDownloadFile(data.url, name);
-        },
-        error: function (err, text) {
-            console.log("Fetching signed URL failed", text, err.responseText)
-            alert("Fetching signed URL failed: " + err.responseText)
-        }
-    });
-}
-
-async function streamDownloadFile(signedUrl, filename) {
-    alert("Your file download has begun in the background. You'll be prompted with the save dialog once completed. \n\nNote it may take time depending on the file size.")
-    const response = await fetch(signedUrl);
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch the file: ${response.statusText}`);
-    }
-
-    // Create a reader to read the response body as a stream
-    const reader = response.body.getReader();
-    const chunks = []; // To hold the chunks of the file
-
-    // Function to process each chunk
-    const processChunk = async ({ done, value }) => {
-        if (done) {
-            // All chunks have been read, create a Blob from the chunks
-            const blob = new Blob(chunks);
-            const blobUrl = URL.createObjectURL(blob);
-
-            // Create a link element for download
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = filename;
-            document.body.appendChild(a); // Append to body
-
-            // Programmatically click the link to trigger the download
-            a.click();
-
-            // Clean up
-            URL.revokeObjectURL(blobUrl);
-            document.body.removeChild(a);
-
-            return;
-        }
-
-        // Push the current chunk to the chunks array
-        chunks.push(value);
-
-        // Read the next chunk
-        await reader.read().then(processChunk);
-    };
-
-    // Start reading the first chunk
-    await reader.read().then(processChunk);
+function outputLinkClicked(dir) {
+    navigator.clipboard.writeText(dir)
+    alert(`Navigate to the directory below to view your output and log files. \n\n${dir}\n\nPath copied to clipboard.`)
 }
