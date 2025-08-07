@@ -23,14 +23,16 @@ const fileUpload = require("express-fileupload");
 const cors = require("cors");
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
+const axios = require('axios');
+const open = require('open'); // npm install open
 // const _ = require("lodash");
 
 // prepare our API endpoint routing
 var fge = require('./flowgraphengine');
 var app = express();
+
 const APP_ROOT_DIR = path.join(__dirname + '/../'); // Application root directory
 const APP_OUTPUT_DIR = path.join(APP_ROOT_DIR, "Outputs")
-// console.log(APP_ROOT_DIR)
 
 // Middleware to extract access token
 function extractToken(req, res, next) {
@@ -67,6 +69,82 @@ function validateFiles(req, res) {
     return true;
 }
 
+// Handle POST requests to root path
+// app.post('/sendjob', (req, res) => {
+//     // Extract URL parameters
+//     const client_id = req.query.client_id;
+//     const client_secret = req.query.client_secret;
+//     const input_path = req.query.input_path;
+
+//     // Validate required parameters
+//     if (!client_id || !client_secret) { // TODO: || !input_path) {
+//         return res.status(400).send({
+//             status: false,
+//             message: 'Missing required parameters: client_id, client_secret, and input_path'
+//         });
+//     }
+
+//     // Execute your extra code here
+//     // 1. Authenticate with APS
+//     // 2. Create automatically a job, based on the file, taking the file name as job name, default frame parameters
+//     // 3. Update the html with that
+//     // 4. Send the job to the Flow Graph Engine
+
+
+//     // You can either:
+//     // 1. Serve the same static content as GET
+//     res.sendFile(path.join(__dirname, '../www/index.html'));
+
+// });
+
+// Handle POST requests to /sendjob with authentication and opening the main page
+app.post('/sendjob', async (req, res) => {
+    const client_id = req.query.client_id;
+    const client_secret = req.query.client_secret;
+    const input_path = req.query.input_path;
+
+    if (!client_id || !client_secret || !input_path) {
+        return res.status(400).send({
+            status: false,
+            message: 'Missing required parameters: client_id, client_secret, and input_path'
+        });
+    }
+
+    try {
+        // Authenticate via /user/token
+        const tokenRes = await axios.post(`http://localhost:${app.get('port')}/user/token`, {
+            client_id,
+            client_secret
+        });
+
+        if (!tokenRes.data.status || !tokenRes.data.token) {
+            return res.status(403).send({
+                status: false,
+                message: 'Authentication failed'
+            });
+        }
+
+        const token = tokenRes.data.token;
+
+        // Open the main HTML page in the default browser, passing token and input_path as query params
+        const url = `http://localhost:${app.get('port')}/index.html?token=${encodeURIComponent(token)}&input_path=${encodeURIComponent(input_path)}`;
+        await open.default(url);
+
+        // Optionally, you can trigger job creation here or let the frontend handle it
+        return res.status(200).send({
+            status: true,
+            message: 'Authenticated and opened main page in browser',
+            token
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).send({
+            status: false,
+            message: 'Internal server error',
+            error: err.toString()
+        });
+    }
+});
 
 app.post('/user/token', async (req, res) => {
     if (!req.body.client_id) {
@@ -182,7 +260,7 @@ app.post('/job/status', extractToken, async (req, res) => {
 
         let queueId = req.body.queueId;
         let jobId = req.body.jobId;
-        var resObj = { status: job.status, error: null, outputs: [], logs: [], dir: outputsDirectory.replace(/\\/g, '/').toString()+"/" };
+        var resObj = { status: job.status, error: null, outputs: [], logs: [], dir: outputsDirectory.replace(/\\/g, '/').toString() + "/" };
 
         try {
             var outputs = undefined;
@@ -195,7 +273,7 @@ app.post('/job/status', extractToken, async (req, res) => {
 
                 // Map to hold
                 let logsMap = new Map();
-            
+
                 const BATCH = 25;
                 const COUNT = Math.ceil(outputs.results.length / BATCH)
 
@@ -225,11 +303,11 @@ app.post('/job/status', extractToken, async (req, res) => {
                         await fge.downloadFileFromSignedUrl(result.url, outputFile);
                     })
 
-                    await Promise.all(downloadOutputPromises);                    
+                    await Promise.all(downloadOutputPromises);
 
                     logsUrl = (outputs && outputs.pagination && outputs.pagination.nextUrl) ? `https://developer.api.autodesk.com${outputs.pagination.nextUrl}` : ""
                 }
-            } while (outputs && outputs.pagination && outputs.pagination.nextUrl && logsUrl!=="")
+            } while (outputs && outputs.pagination && outputs.pagination.nextUrl && logsUrl !== "")
         }
         catch (e) { }
 
@@ -280,7 +358,7 @@ app.post('/job/status', extractToken, async (req, res) => {
 
                     outputsUrl = (outputs && outputs.pagination && outputs.pagination.nextUrl) ? `https://developer.api.autodesk.com${outputs.pagination.nextUrl}` : ""
                 }
-            } while (outputs && outputs.pagination && outputs.pagination.nextUrl && outputsUrl!=="")
+            } while (outputs && outputs.pagination && outputs.pagination.nextUrl && outputsUrl !== "")
         }
         catch (e) { }
 
@@ -315,7 +393,7 @@ async function prepareRequest(req, res, access_token, bifrostGraphPath) {
     console.log('Bifrost graph file uploaded');
 
     // Submit job
-    let taskName = req.body.job_name 
+    let taskName = req.body.job_name
     let startFrame = parseInt(req.body.startFrame) <= 0 ? 1 : parseInt(req.body.startFrame)
     let endFrame = parseInt(req.body.endFrame) <= 0 ? 1 : parseInt(req.body.endFrame)
 
