@@ -102,6 +102,8 @@ app.post('/sendjob', async (req, res) => {
     const client_id = req.query.client_id;
     const client_secret = req.query.client_secret;
     const input_path = req.query.input_path;
+    const start_frame = req.query.start_frame || 1; // Default to 1 if not provided
+    const end_frame = req.query.end_frame || 10; // Default to 10 if not provided
 
     if (!client_id || !client_secret || !input_path) {
         return res.status(400).send({
@@ -125,9 +127,11 @@ app.post('/sendjob', async (req, res) => {
         }
 
         const token = tokenRes.data.token;
+        const job_name = path.basename(input_path, path.extname(input_path)); // Use the file name as job name
+        console.log(`Job Name: ${job_name}, Start Frame: ${start_frame}, End Frame: ${end_frame}`);
 
         // Open the main HTML page in the default browser, passing token and input_path as query params
-        const url = `http://localhost:${app.get('port')}/index.html?token=${encodeURIComponent(token)}&input_path=${encodeURIComponent(input_path)}`;
+        const url = `http://localhost:${app.get('port')}/index.html?token=${encodeURIComponent(token)}&input_path=${encodeURIComponent(input_path)}&job_name=${encodeURIComponent(job_name)}&start_frame=${encodeURIComponent(start_frame)}&end_frame=${encodeURIComponent(end_frame)}`;
         await open.default(url);
 
         // Optionally, you can trigger job creation here or let the frontend handle it
@@ -187,10 +191,15 @@ app.post('/jobs', extractToken, async (req, res) => {
             });
         }
 
-        if (!req.files.bifrost_files) {
-            return res.send({
+        console.log("Body: ", req.body);
+
+        // If using file upload, req.files may be present
+        // If using input_path, it should be in req.body.input_path
+        // Check for input_path in body if no file is uploaded
+        if ((!req.files || !req.files.bifrost_files) && !req.body.input_path) {
+            return res.status(400).send({
                 status: false,
-                message: 'Bifrost file input was not provided.'
+                message: "Missing required input: either upload a file or provide 'input_path' in the request body."
             });
         }
 
@@ -202,20 +211,32 @@ app.post('/jobs', extractToken, async (req, res) => {
         }
 
         else {
-            let bifrostGraph = req.files.bifrost_files
-            // let inputUsd = req.files.input_files
+            const isModalData = req.body.input_path === undefined;
+            let bifrostGraph = undefined;
+            let bifrostPath = undefined;
+            
+            if(isModalData) bifrostGraph  = req.files.bifrost_files;
+            else bifrostPath = req.body.input_path;
 
             let now = Date.now()
-            let bifrostGraphName = `${now}-${bifrostGraph.name}`
-            // let inputUsdName = `${now}-${inputUsd.name}`
+            let bifrostGraphName = undefined
 
-            let bifrostfilepath = path.join(__dirname, `../files/uploads/${bifrostGraphName}`)
-            // let inputusdfilepath = path.join(__dirname, `../files/uploads/${inputUsdName}`)
+            if (isModalData) {
+                // If bifrostGraph is a file input, use its name    
+                bifrostGraphName = bifrostGraph.name;
+            } else {
+                // If bifrostGraph is a path, use the basename of the path
+                bifrostGraphName = path.basename(bifrostPath);
+            }
 
-            bifrostGraph.mv(bifrostfilepath);
-            // inputUsd.mv(inputusdfilepath);
+            if(isModalData) {
+                let bifrostfilepath = path.join(__dirname, `../files/uploads/${bifrostGraphName}`)
+                bifrostGraph.mv(bifrostfilepath);
+                return await prepareRequest(req, res, req.token, bifrostfilepath);
+            }
 
-            return await prepareRequest(req, res, req.token, bifrostfilepath); //, inputusdfilepath)
+            // If bifrostGraph is a path, pass it directly
+            return await prepareRequest(req, res, req.token, bifrostPath);
         }
     } catch (err) {
         console.log("Request failed: ", err)

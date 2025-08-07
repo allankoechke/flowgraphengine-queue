@@ -4,17 +4,28 @@ var MyVars = {
 }
 
 $(document).ready(function () {
-    // check URL params
     var url = new URL(window.location.href);
+    var token = url.searchParams.get("token");
+    var job_name = url.searchParams.get("job_name");
+    var start_frame = url.searchParams.get("start_frame");
+    var end_frame = url.searchParams.get("end_frame");
+    var input_path = url.searchParams.get("input_path");
+
+    // If client_id is set, set it
+    // This is optional, but if set, it will be used for user authentication
     var client_id = url.searchParams.get("client_id");
     if (client_id) {
         $("#client_id").val(client_id);
     }
+
+    // If client_secret is set, set it
+    // This is optional, but if set, it will be used for user authentication
     var client_secret = url.searchParams.get("client_secret");
     if (client_secret) {
         $("#client_secret").val(client_secret);
     }
 
+    // Set auth click handler
     var auth = $("#authenticate")
     auth.click(function () {
         populateTable();
@@ -51,6 +62,24 @@ $(document).ready(function () {
 
     populateModal();
 
+    if (token) {
+        MyVars.token = token;
+        $("#authenticate").html('You\'re logged in').addClass('disabled');
+        $("#createNewJob").show();
+
+        // If all job params are present, auto-create a job
+        if (token && job_name && start_frame && end_frame && input_path) {
+            // console.log("Auto-creating job with params:", start_frame, end_frame, input_path);
+
+            // Prepare form data for /jobs endpoint
+            startNewJob({
+                job_name: job_name,
+                start_frame: start_frame,
+                end_frame: end_frame,
+                input_path: input_path
+            });
+        }
+    }
 }); // $(document).ready
 
 function clearModalFields() {
@@ -84,7 +113,7 @@ function populateTable() {
 
     MyVars.jobs.forEach((job, index, _) => {
         hasFiles = false;
-        
+
 
         var row = `<tr>
             <th scope="row">${index + 1}</th>
@@ -216,7 +245,7 @@ function getInputs(title, inputs) {
                 <div class="input-group-addon">
                     <span class="input-group-text" id="${modelDialog}_${key}_prepend">${input.text}</span>
                 </div>
-                <input id="${modelDialog}_${key}" type="${input.type ? input.type : 'text'}" ${input.type==='number' && `min=${input.min}`} class="form-control" placeholder="${input.placeholder}" aria-label="${modelDialog}_${key}" aria-describedby="${modelDialog}_${key}_prepend" value="${input.value}" />
+                <input id="${modelDialog}_${key}" type="${input.type ? input.type : 'text'}" ${input.type === 'number' && `min=${input.min}`} class="form-control" placeholder="${input.placeholder}" aria-label="${modelDialog}_${key}" aria-describedby="${modelDialog}_${key}_prepend" value="${input.value}" />
                 `)
         }
 
@@ -264,28 +293,57 @@ function getInputs(title, inputs) {
     })
 
     // Start a new job when submitted
-    $('#myModal_Create').on('click', startNewJob);
+    $('#myModal_Create').on('click', () => startNewJob());
 }
 
-async function startNewJob() {
-    var jobName = $("#myModal_jobName");
-    var bifrostGraph = $("#myModal_bifrostGraph");
-    var startFrame = $("#myModal_startFrame");
-    var endFrame = $("#myModal_endFrame");
+async function startNewJob(form_data = undefined) {
+    var jobName = undefined;
+    var bifrostGraph = undefined;
+    var startFrame = undefined;
+    var endFrame = undefined;
 
-    if (validateFiles(jobName, bifrostGraph, startFrame, endFrame)) {
+    // If bifrostGraph is a file input, append the file
+    var isUsingModalData = (form_data === undefined);
+
+    if (isUsingModalData) {
+        console.log("Using modal data");
+        // Get form data from modal
+        // handle form data from modal
+        jobName = $("#myModal_jobName").val();
+        bifrostGraph = $("#myModal_bifrostGraph");
+        startFrame = $("#myModal_startFrame").val();
+        endFrame = $("#myModal_endFrame").val();
+    } else {
+        console.log("Using form data passed in");
+        // If form_data is provided, use it
+        // handle form data from path params
+        jobName = form_data.job_name;
+        bifrostGraph = form_data.input_path;
+        startFrame = form_data.start_frame;
+        endFrame = form_data.end_frame;
+    }
+
+    if (validateFiles(jobName, bifrostGraph, startFrame, endFrame, isUsingModalData)) {
         const formData = new FormData();
-        // formData.append('input_files', inputFile.prop("files")[0]);
-        formData.append('bifrost_files', bifrostGraph.prop("files")[0]);
-        formData.append('job_name', jobName.val());
-        formData.append('startFrame', startFrame.val());
-        formData.append('endFrame', endFrame.val());
+        formData.append('job_name', jobName);
+        formData.append('startFrame', startFrame);
+        formData.append('endFrame', endFrame);
+
+        // Prefer file upload if present, else use path
+        if (isUsingModalData) {
+            formData.append('bifrost_files', bifrostGraph.prop("files")[0]);
+        } else {
+            formData.append('input_path', bifrostGraph);
+        }
+
+        console.log("Starting new job with form data: \n", formData);
 
         var id = uuidv4();
-
+        // Create a new job object
+        // This will be used to track the job in the UI
         var job = {
             uuid: id,
-            name: jobName.val(),
+            name: jobName,
             inputFiles: [],
             jobId: "",
             queueId: "",
@@ -297,7 +355,8 @@ async function startNewJob() {
             anotherStatusRequestPending: false
         }
 
-        closeModal();
+        if (isUsingModalData)
+            closeModal();
         MyVars.jobs.push(job);
         populateTable();
 
@@ -310,20 +369,20 @@ async function startNewJob() {
             success: function (data) {
                 if (data.status) {
                     // console.log("Job Success: ", data)
-                    MyVars.jobs = MyVars.jobs.map(task => task.uuid === id ? { ...task, status: "QUEUED",  jobId: data.jobId, queueId: data.queueId} : task);
+                    MyVars.jobs = MyVars.jobs.map(task => task.uuid === id ? { ...task, status: "QUEUED", jobId: data.jobId, queueId: data.queueId } : task);
                     populateTable();
 
                     const intervalId = setInterval(() => {
                         // Call the function and pass the handle (intervalId) to it
                         checkStatus(data.jobId, data.queueId, intervalId);
                     }, 5000);
-                } else {                    
-                    MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED"} : job);
+                } else {
+                    MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED" } : job);
                     populateTable();
                 }
             },
             error: function (err, text) {
-                MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED"} : job);
+                MyVars.jobs = MyVars.jobs.map(job => job.uuid === id ? { ...job, status: "UPLOAD FAILED" } : job);
                 populateTable();
                 alert(err.responseText)
             },
@@ -340,8 +399,8 @@ async function startNewJob() {
         // Update job item
         var foundIndex = MyVars.jobs.findIndex(job => job.jobId === jobId);
 
-        if (foundIndex>=0 && !MyVars.jobs[foundIndex].anotherStatusRequestPending) {
-            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: true} : job);
+        if (foundIndex >= 0 && !MyVars.jobs[foundIndex].anotherStatusRequestPending) {
+            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: true } : job);
 
             $.ajax({
                 url: '/job/status',
@@ -368,31 +427,40 @@ async function startNewJob() {
                 }
             });
 
-            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false} : job);
+            MyVars.jobs = MyVars.jobs.map(job => job.jobId === jobId ? { ...job, anotherStatusRequestPending: false } : job);
             populateTable();
         }
     }
 
 }
 
-function validateFiles(jobName, bifrostGraph, startFrame, endFrame) {
-    if (!jobName || jobName.val() === "") {
+function validateFiles(jobName, bifrostGraph, startFrame, endFrame, isModalData) {
+    if (!jobName || jobName.length === 0) {
         alert("Job Name is required");
         return false;
     }
 
-    if (!bifrostGraph || bifrostGraph.prop("files").length === 0 || bifrostGraph.prop("files")[0].name === "" || !bifrostGraph.prop("files")[0].name.endsWith(".json")) {
-        alert("Input File Error\n\nBifrost Graph is required, please select a graph file with a .json extension.");
+    if (isModalData) {
+        // If using modal data, bifrostGraph is a file input
+        if (!bifrostGraph || bifrostGraph.prop("files").length === 0 || bifrostGraph.prop("files")[0].name === "" || !bifrostGraph.prop("files")[0].name.endsWith(".json")) {
+            alert("Input File Error\n\nBifrost Graph is required, please select a graph file with a .json extension.");
+            return false;
+        }
+    } else {
+        // If using path data, bifrostGraph is a string
+        if (!bifrostGraph || bifrostGraph.length < 5 || !bifrostGraph.endsWith(".json")) {
+            alert("Input File Error\n\nBifrost Graph is required, please select a graph file with a .json extension.");
+            return false;
+        }
+    }
+
+    if (!startFrame || isNaN(startFrame) || startFrame < 1) {
+        alert("A vaid simulation start frame is required");
         return false;
     }
 
-    if (!startFrame || startFrame.val() === "") {
-        alert("Simulation start frame is required");
-        return false;
-    }
-
-    if (!endFrame || endFrame.val() === "") {
-        alert("Simulation end frame is required");
+    if (!endFrame || isNaN(endFrame) || endFrame < 1) {
+        alert("A valid simulation end frame is required");
         return false;
     }
 
